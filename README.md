@@ -5,7 +5,6 @@ Mozno testovat so suborom _install/bin/testParser.lua:
 print("=======STARTED==========")
   
 lpeg = require("legmoon.parsermoon")  
-helper = require("myLua.helper")  
   
 function getFile(filename)  
   local f = assert(io.open(filename, "r"))  
