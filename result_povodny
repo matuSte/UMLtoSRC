@@ -1,0 +1,141 @@
+local BUFSIZE = 2^13     -- 8K
+local f = io.input(arg[1])   -- open input file
+local cc, lc, wc = 0, 0, 0   -- char, line, and word counts
+while true do
+  local lines, rest = f:read(BUFSIZE, "*line")
+  if not lines then break end
+  if rest then lines = lines .. rest .. '\n' end
+  cc = cc + string.len(lines)
+  -- count words in the chunk
+  local _,t = string.gsub(lines, "%S+", "")
+  wc = wc + t
+  -- count newlines in the chunk
+  _,t = string.gsub(lines, "\n", "\n")
+  lc = lc + t
+end
+print(lc, wc, cc)
+
+=====================================================
+rules:
+table: 0x414a9448 {
+  [1] => userdata: 0x414ac7a0
+  [LOCAL] => userdata: 0x414b22c0
+  [NOT] => userdata: 0x414b2da8
+  [NameList] => userdata: 0x4061d438
+  [.] => userdata: 0x4061aec0
+  [FieldList] => userdata: 0x414ad550
+  [...] => userdata: 0x4061a978
+  [If] => userdata: 0x414b1100
+  [Assign] => userdata: 0x414b3258
+  [BOF] => userdata: 0x414a1060
+  [EPSILON] => userdata: 0x414a9488
+  [Stat] => userdata: 0x414b2e18
+  [EOF] => userdata: 0x414a10d0
+  [LastStat] => userdata: 0x4061cd48
+  [ExpList] => userdata: 0x4061d7b0
+  [;] => userdata: 0x4061a0c8
+  [RETURN] => userdata: 0x414b1490
+  [<] => userdata: 0x4061ac20
+  [Chunk] => userdata: 0x414b2880
+  [LocalFunction] => userdata: 0x414b3300
+  [>] => userdata: 0x4061ac70
+  [_SimpleExp] => userdata: 0x41499b30
+  [WHILE] => userdata: 0x414b61b0
+  [_FieldID] => userdata: 0x414ace08
+  [NIL] => userdata: 0x414b2810
+  [Do] => userdata: 0x414b3790
+  [==] => userdata: 0x414b6f58
+  [<=] => userdata: 0x414b6e18
+  [}] => userdata: 0x406191b8
+  [#] => userdata: 0x414b6ed8
+  [_PrefixExp] => userdata: 0x414a35d8
+  [IGNORED] => userdata: 0x414a7f50
+  [FieldSep] => userdata: 0x414acfe8
+  [%] => userdata: 0x414b6d60
+  [Block] => userdata: 0x414b2998
+  [:] => userdata: 0x4061a260
+  [~=] => userdata: 0x414b6f90
+  [Var] => userdata: 0x414b3158
+  []] => userdata: 0x40619f40
+  [-] => userdata: 0x4061abd0
+  [>=] => userdata: 0x406192c0
+  [STRING] => userdata: 0x414a7900
+  [While] => userdata: 0x414a30f0
+  [FALSE] => userdata: 0x414af320
+  [Field] => userdata: 0x414ad7f8
+  [[] => userdata: 0x4061ade8
+  [,] => userdata: 0x4061a408
+  [(] => userdata: 0x40619708
+  [NumericFor] => userdata: 0x414ad400
+  [FUNCTION] => userdata: 0x414aeee0
+  [_FieldSquare] => userdata: 0x414aca00
+  [END] => userdata: 0x414af260
+  [)] => userdata: 0x40619840
+  [THEN] => userdata: 0x414b1560
+  [{] => userdata: 0x40619988
+  [/] => userdata: 0x414b6b70
+  [Name] => userdata: 0x414ac738
+  [=] => userdata: 0x4061acc0
+  [+] => userdata: 0x414b6b40
+  [GlobalFunction] => userdata: 0x4061c188
+  [*] => userdata: 0x414b6c28
+  [LocalAssign] => userdata: 0x414a6bc0
+  [FuncName] => userdata: 0x414ab7b0
+  [FOR] => userdata: 0x414af3e0
+  [Function] => userdata: 0x414b35f8
+  [_PrefixExpColon] => userdata: 0x414b3108
+  [FunctionCall] => userdata: 0x414b3430
+  [_PrefixExpArgs] => userdata: 0x414a76d0
+  [GenericFor] => userdata: 0x4061bef8
+  [Repeat] => userdata: 0x414b5a98
+  [ELSEIF] => userdata: 0x414aefa8
+  [IF] => userdata: 0x414b19a0
+  [AND] => userdata: 0x4149f750
+  [TableConstructor] => userdata: 0x414b5770
+  [CHUNK] => userdata: 0x414a8180
+  [VarList] => userdata: 0x4061d0c0
+  [DO] => userdata: 0x414aeac0
+  [ELSE] => userdata: 0x414aec90
+  [BREAK] => userdata: 0x414ae8d0
+  [_PrefixExpParens] => userdata: 0x414ade00
+  [_PrefixExpSquare] => userdata: 0x40619028
+  [^] => userdata: 0x414b6e58
+  [Args] => userdata: 0x414b2a38
+  [_PrefixExpDot] => userdata: 0x414a7648
+  [ParList] => userdata: 0x414b17b8
+  [TRUE] => userdata: 0x414b5150
+  [UnOp] => userdata: 0x414a5728
+  [..] => userdata: 0x4061af40
+  [BinOp] => userdata: 0x414a5340
+  [FuncBody] => userdata: 0x414a04f8
+  [_FieldExp] => userdata: 0x414aceb0
+  [OR] => userdata: 0x414b3390
+  [REPEAT] => userdata: 0x414b39e0
+  [Exp] => userdata: 0x4061db90
+  [IN] => userdata: 0x414b1de0
+  [NUMBER] => userdata: 0x4061afa0
+  [ID] => userdata: 0x414b43c8
+  [UNTIL] => userdata: 0x414b5948
+}
+
+===================%
+grammar:
+table: 0x414aebf0 {
+  [Ct] => function: 0x4061a358
+  [copy] => function: 0x4061a378
+  [listOf] => function: 0x4061a318
+  [apply] => function: 0x4061a0e0
+  [pipe] => function: 0x4061a080
+  [_M] => table: 0x414aebf0 {
+            *table: 0x414aebf0
+          }
+  [anyOf] => function: 0x4149b688
+  [_NAME] => "leg.grammar"
+  [complete] => function: 0x4061a3b8
+  [C] => function: 0x4061a338
+  [_PACKAGE] => "leg."
+}
+
+==============%
+result:
+  506
