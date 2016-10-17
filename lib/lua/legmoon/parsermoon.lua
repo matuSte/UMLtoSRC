@@ -228,6 +228,8 @@ local L = m.luversion and m.L or function(v)
   return #v
 end
 
+local keywords2 = {}
+
 local trim
 trim = function(str)
   return str:match("^%s*(.-)%s*$")
@@ -298,7 +300,7 @@ local op
 op = function(chars)
   local patt = Space * m.C(chars)
   if chars:match("^%w*$") then
-    scanner.keywords[chars] = true
+    keywords2[chars] = true
     patt = patt * -AlphaNum
   end
   return patt
@@ -314,7 +316,7 @@ Num = Space * (Num / function(v)
 end)
 
 local Name = m.Cmt(SpaceName, function(str, pos, name)
-    if scanner.keywords[name] then
+    if keywords2[name] then
       return false
     end
     return true
@@ -322,7 +324,7 @@ local Name = m.Cmt(SpaceName, function(str, pos, name)
 
 local key
   key = function(chars)
-  --scanner.keywords[chars] = true
+  keywords2[chars] = true
   return Space * chars * -AlphaNum
 end
 
@@ -377,7 +379,7 @@ local VarArg = Space * m.P("...") / trim
     Assign = util.sym("=") * (m.Ct(m.V'With' + m.V'If' + m.V'Switch') + m.Ct(m.V'TableBlock' + m.V'ExpListLow')) / util.mark("assign"),
     Update = ((util.sym("..=") + util.sym("+=") + util.sym("-=") + util.sym("*=") + util.sym("/=") + util.sym("%=") + util.sym("or=") + util.sym("and=") + util.sym("&=") + util.sym("|=") + util.sym(">>=") + util.sym("<<=")) / trim) * m.V'Exp' / util.mark("update"),
     CharOperators = Space * m.C(m.S("+-*/%^><|&")),
-    WordOperators = m.V'OR' + m.V'AND' + op("<=") + op(">=") + op("~=") + op("!=") + op("==") + op("..") + op("<<") + op(">>") + op("//"),
+    WordOperators = m.V'OR' + m.V'AND' + m.V'<=' + m.V'>=' + m.V'~=' + m.V'!=' + m.V'==' + m.V'..' + m.V'<<' + m.V'>>' + m.V'//',
     BinaryOperator = (m.V'WordOperators' + m.V'CharOperators') * SpaceBreak ^ 0,
     Assignable = m.Cmt(m.V'Chain', util.check_assignable) + Name + SelfName,
     Exp = m.Ct(m.V'Value' * (m.V'BinaryOperator' * m.V'Value') ^ 0) / util.flatten_or_mark("exp"),
