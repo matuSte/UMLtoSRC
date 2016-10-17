@@ -195,6 +195,7 @@ table: 0x406e4c08 {
 }
 
 ======================%
+result:
 table: 0x41f9ea30 {
   [1] => table: 0x41f9ea30 {
            [1] => "class"
