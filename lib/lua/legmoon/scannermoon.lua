@@ -315,17 +315,23 @@ SYMBOL = apply (symbols, {
 	'==',    '~=',    '<=',    '>=',    '<',     '>',     '=',
 	'(',     ')',     '{',     '}',     '[',     ']',
 	';',     ':',     ',',     '.',     '..',    '...',
-  '+=', '-=', '/=', '*=', '%=', '..=', '!=', '\\'
+  '+=', '-=', '/=', '*=', '%=', '..=', '!=', '\\', '<<', '>>', '//'
 })
 
 -- special cases (needs lookahead)
-symbols['-']  = symbols['-']  - '--'
-symbols['<']  = symbols['<']  - symbols['<=']
-symbols['>']  = symbols['>']  - symbols['>=']
+symbols['-']  = symbols['-']  - ('--'              + symbols['-='])
+symbols['<']  = symbols['<']  - (symbols['<=']     + symbols['<<'])
+symbols['>']  = symbols['>']  - (symbols['>=']     + symbols['>>'])
 symbols['=']  = symbols['=']  - symbols['==']
 symbols['[']  = symbols['[']  - '[' * m.S'[='
 symbols['.']  = symbols['.']  - (symbols['..'] + N)
-symbols['..'] = symbols['..'] - symbols['...']
+symbols['..'] = symbols['..'] - (symbols['...']    + symbols['..='])
+
+symbols['+'] = symbols['+'] - symbols['+=']
+symbols['-'] = symbols['-'] - symbols['-=']
+symbols['/'] = symbols['/'] - (symbols['/='] + symbols['//'])
+symbols['*'] = symbols['*'] - symbols['*=']
+symbols['%'] = symbols['%'] - symbols['%=']
 
 SYMBOL = m.P(false)
 for _, v in _G.pairs(symbols) do
