@@ -1,30 +1,3 @@
-# UMLtoSRC
-
-Mozno testovat so suborom _install/bin/testParser.lua:  
-```lua  
-print("=======STARTED==========")
-  
-parser = require("legmoon.parsermoon")  
-  
-function getFile(filename)  
-  local f = assert(io.open(filename, "r"))  
-  local text = f:read("*all")  
-  f:close()  
-  return text  
-end  
-  
-  
-local text = getFile("fileToParse.lua");
-
-
-print("==========Code01================")
-print(text)
-print("------------RESULT-------------")
-print(parser.check(text))
-
-print("=======FINNISH===========")
-```  
-
 # Mozno uzitocne linky
 
 Making a toy programming language in Lua, part 1  
