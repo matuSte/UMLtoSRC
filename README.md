@@ -3,7 +3,7 @@
 MoonScript 0.5.0 - Language Guide  
 http://moonscript.org/reference/  
 
-Moonscript cheatsheet
+Moonscript cheatsheet  
 https://billyquith.github.io/cheatsheet/?sheet=moonscript#
 
 Parsing Expression Grammars For Lua, version 1.0  
