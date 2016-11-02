@@ -36,8 +36,8 @@ local White = m.S(" \t\r\n") ^ 0
 local plain_space = m.S(" \t") ^ 0
 local Break = m.P("\r") ^ -1 * m.P("\n")
 local Stop = Break + -1
-local Comment = m.P("--") * (1 - m.S("\r\n")) ^ 0 * L(Stop)
-local Space = plain_space * Comment ^ -1
+Comment = m.P("--") * (1 - m.S("\r\n")) ^ 0 * L(Stop)
+Space = plain_space * Comment ^ -1
 local SomeSpace = m.S(" \t") ^ 1 * Comment ^ -1
 local SpaceBreak = Space * Break
 local EmptyLine = SpaceBreak
@@ -146,13 +146,14 @@ end
 local DisableDo = m.Cmt("", disable_do)
 local PopDo = m.Cmt("", pop_do)
 --local SelfName = Space * "@" * ("@" * (_Name) + _Name)
-local SelfName = Space * "@" * ("@" * (_Name + m.Cc("self.__class")) + _Name + m.Cc("self"))
+--local SelfName = Space * "@" * ("@" * (_Name + m.Cc("self.__class")) + _Name + m.Cc("self"))
+local SelfName = Space * "@" * ("@" * (_Name)^-1 + _Name) ^-1
 --local SelfName   = (Space * "@" * ("@" * (_Name ^-1) + _Name) ^-1 )
 --local SelfName = Space * "@" * ("@" * (_Name / util.mark("self_class") + m.Cc("self.__class")) + _Name / util.mark("self") + m.Cc("self"))
 local KeyName = SelfName + Space * _Name
 local VarArg = Space * m.P("...")
 
- rules = {
+rules = {
     [1] = m.V'File',
     File = Shebang ^ -1 * (m.V'Block' ^-1),
     Block = (m.V'Line' * (Break ^ 1 * m.V'Line') ^ 0),
@@ -231,9 +232,10 @@ local VarArg = Space * m.P("...")
     TableBlockInner = (m.V'KeyValueLine' * (SpaceBreak ^ 1 * m.V'KeyValueLine') ^ 0),
     TableBlock = SpaceBreak ^ 1 * m.V'Advance' * util.ensure(m.V'TableBlockInner', m.V'PopIndent') ,
     
-    ClassDecl = m.V'CLASS' * -m.P(":") * ((m.V'Assignable') ^-1) * (m.V'EXTENDS' * m.V'PreventIndent' * util.ensure(m.V'Exp', m.V'PopIndent') ^-1) ^-1 * (m.V'ClassBlock' ^-1),
+    ClassDecl = m.V'CLASS' * -m.P(":") * (m.V'Assignable') ^-1 *   (m.V'EXTENDS' * m.V'PreventIndent' * util.ensure(m.V'Exp', m.V'PopIndent') ) ^-1 * (m.V'ClassBlock' ^-1),
+  --ClassDecl = m.V'CLASS' * -m.P(":") * ((m.V'Assignable') ^-1) * (m.V'EXTENDS' * m.V'PreventIndent' * util.ensure(m.V'Exp', m.V'PopIndent') ^-1) ^-1 * (m.V'ClassBlock' ^-1),
   
-  --ClassDecl = key("class") *   -P(":") * (Assignable + Cc(nil)) * (key("extends") *    PreventIndent *       ensure(    Exp,      PopIndent) + C("")) ^-1 * (  ClassBlock + Ct("")),
+  --ClassDecl = key("class") * -P(":") * (Assignable + Cc(nil)) * (key("extends") *    PreventIndent *       ensure(    Exp,      PopIndent) + C("")) ^-1 * (  ClassBlock + Ct("")),
     ClassBlock = SpaceBreak ^ 1 * m.V'Advance' * (m.V'ClassLine' * (SpaceBreak ^ 1 * m.V'ClassLine') ^ 0) * m.V'PopIndent',
   --ClassBlock = SpaceBreak ^ 1 *     Advance *Ct(    ClassLine *  (SpaceBreak ^ 1 *     ClassLine ) ^ 0) * PopIndent,
     ClassLine = m.V'CheckIndent' * ((m.V'KeyValueList' + m.V'Statement' + m.V'Exp') * util.sym(",") ^ -1),

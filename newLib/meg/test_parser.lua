@@ -26,10 +26,10 @@ end
 -- testy; ak sa retazec zacina s vykricnikom, tak ten test nema prejst
 
 --TEST('Exp', { '5 + 4', '2.5 - 2', 'a = 1+4', '!--', '2*5-(10-f().name)/a()+13', '-1*2*4^0', '!class', '!!anot', '!!nota' })
+TEST('ClassDecl', {'!class ABC sdf extends Bucket', 'class ABC extends Bucket sdf dfg', '!class ABC exxtends Bucket', 'class', 'class @@ sdf extends Bucket'})
 TEST('Assign', {'= a b c d e f g', '!local asd = a'})
 TEST('Return', {'return', 'return a', 'return 45', 'return a, b, 10', '!return 4, 1, while', '!return 4, 1 when 4%2==1'})
 TEST('Return', {'return a, b; sd, r, 5; f; {1, 2, a}', '!return 0;'})
-
 
 
 
