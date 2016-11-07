@@ -7,12 +7,6 @@ local rules = require 'luameg.rules'
 
 local AST_capt = require 'luameg.captures.AST'
 
-local helper = require("myLua/helper")
-local help = require("luatree/utils/init")
-
--- module("luameg")
-
-
 
 
 lpeg.setmaxstack(400)
@@ -66,7 +60,6 @@ end
 local function getChildNode(ast, key, value, data)
 
 	for k, v in pairs(ast) do
-           -- ignore parent
         if k ~= "parent" and k ~= "nodeid_references" and k ~= "text" then
            	if k == key and v == value then
            		table.insert(data, ast)
@@ -102,12 +95,13 @@ end
 
 -- return list of names of all classes from AST with all methods and properties
 local function getAllClassesWithProps(ast) 
-	local out = {}
+	local out = {["name"]=nil, ["extended"]=nil, ["properties"]=nil, ["methods"]=nil}
 
 	if ast == nil then
 		return out
 	end
 
+	-- ziska vsetky podstromy kde su definovane triedy
 	local classDecl = {}
 	getChildNode(ast, "key", "ClassDecl", classDecl)
 
@@ -115,23 +109,54 @@ local function getAllClassesWithProps(ast)
 		local className = {}
 		local classProps = {}
 		local props = {}
+		local extendedClass = {}
 
+		-- v className bude meno triedy (malo by byt len jedno v danom bloku/podstromu ClassDecl)
 		getChildNode(classDecl[i], "key", "Assignable", className)
+
+		-- v classProps budu vsetky metody a properties v danom bloku/podstromu ClassDecl
 		getChildNode(classDecl[i], "key", "KeyName", classProps)
 
+		-- ziskanie extended class
+		for qq=1, #classDecl[i]["data"] do
+			if classDecl[i]["data"][qq]["key"] == "Exp" then
+				getChildNode(classDecl[i]["data"][qq], "key", "Name", extendedClass)
+			end
+		end
+
+		-- prevod tabulky extendedClass na string alebo nil. extendedClass by mal obsahovat iba jeden element
+		if #extendedClass > 0 then
+			extendedClass = extendedClass[1]["text"]
+		else
+			extendedClass = nil
+		end
+
+		-- ziskanie nazvu triedy. Nazov by mal byt iba jeden.
 		if (#className > 0) then
+
+			-- nazbieranie vsetkych properties
 			for j=1, #classProps do
-				print(classProps[j]["text"])
 				table.insert(props, classProps[j]["text"])
 			end
-			table.insert(out, {className[1]["text"], props})
+			
+			table.insert(out, {["name"]=className[1]["text"], ["extends"]=extendedClass, ["properties"]=props, ["methods"]={}})
 		end
-		print()
+		
 	end
 
 	return out
 end
 
+--[[
+	@startuml
+	class [name] {
+		[prop] : var
+		void [method]
+	}
+
+	[name] o-- [name]
+	@enduml
+]]
 
 return {
 	processText = processText,

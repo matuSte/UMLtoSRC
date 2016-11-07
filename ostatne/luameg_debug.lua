@@ -87,19 +87,24 @@ if arg1 ~= nil then
 	elseif arg2 == "5" then
 		local classes = luameg.getAllClassesWithProps(AST)
 		print("Number classes: " .. #classes .. ", and type is: " .. type(classes))
+		print()
 
-		--helper.printTable_r(classes)
-		for i=1, #classes do	
-			for j=1, #classes[i] do
-				if type(classes[i][j]) == "table" then
-					for k=1, #classes[i][j] do
-						print('\t"' .. tostring(classes[i][j][k]) .. '"')
-					end
-				else 
-					print('"' .. classes[i][j] .. '"')
-				end
+		for i=1, #classes do
+			print("::Name:")
+			print(classes[i]["name"])
+			print("::Extends:")
+			print(classes[i]["extends"])
+			print("::Properties:")
+			for j=1, #classes[i]["properties"] or 0 do
+				print("\t" .. classes[i]["properties"][j])
 			end
+			print("::Methods:")
+			for j=1, #classes[i]["methods"] do
+				print("\t" .. classes[i]["methods"][j])
+			end
+			print()
 		end
+
 	end
 
 
