@@ -1,0 +1,15 @@
+--- This file is part of LuaDist project
+
+name = "luameg"
+version = "0.1"
+
+desc = "Moonscript parser"
+author = "Matus Stefanik"
+license = "MIT/X11"
+url = "https://github.com/matuSte/UMLtoSRC"
+maintainer = "Peter Kapec"
+
+depends = {
+  "lua >= 5.1",
+  "leg = 0.1.3 ",	-- needs version 0.1.3 that supports LPeg 0.10
+}
