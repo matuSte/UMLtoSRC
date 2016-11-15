@@ -56,6 +56,25 @@ function selectProperties(astData, actualKey)
   
 end
 
+function subsequentMethodHelper(index, subsequentMethods, node)
+
+  if (#node.data == 2) and (node.data[1].key == "Callable") and (node.data[2].key == "InvokeArgs") then
+    
+     subsequentMethods[index] = node.data[1].text
+     index = index + 1
+    
+  else
+    for key, value in pairs(node.data) do
+  
+      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, value)
+  
+    end
+  end
+  
+  return index, subsequentMethods
+
+end
+
 --find class method that will be start point for sequence diagram
 function find(ast, className, methodName)
   
@@ -90,6 +109,18 @@ function find(ast, className, methodName)
   
 end 
 
+function getSubsequentMethods(introMethodNode)
+
+  local index = 0
+  local subsequentMethods = {}
+  local methodExp = introMethodNode.data[2]
+  
+  index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, methodExp)
+  
+  return subsequentMethods
+end
+
 return {
-  find = find
+  find = find,
+  getSubsequentMethods = getSubsequentMethods
 }
