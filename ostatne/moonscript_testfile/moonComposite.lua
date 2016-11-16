@@ -1,13 +1,11 @@
 class Component
-	new: (namee, abc, def) =>
-		@name = namee
-		@abc = @name 
-		@@name = "asd"
+	new: (title) =>
+		@name = title
 
 class Composite extends Component
-	new: (namee) =>
+	new: (title) =>
 		@children = {}
-		super(namee)
+		super(title)
 
 	operation: (indent=1) =>
 		print "Composite: " .. @name
@@ -21,8 +19,8 @@ class Composite extends Component
 
 
 class Leaf extends Component
-	new: (namee) =>
-		super(namee)
+	new: (title) =>
+		super(title)
 
 	operation: => 
 		print "Leaf: " .. tostring(@name)
