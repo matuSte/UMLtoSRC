@@ -29,3 +29,11 @@ zbstudio
 Edit -> Preferences -> Settings:System  dopisat:  
 *path.lua = "[absolutnaCestaDoHyperLua]/_install/bin/lua"*  
 
+# Moonscript projekty
+http://leafo.net
+
+# AST Tree Syntax
+http://ironcreek.net/phpsyntaxtree/
+
+# Plant UML
+www.plantuml.com/plantuml/uml
