@@ -4,11 +4,10 @@ function findClass(node, sibling, className)
   if (node.key == "CLASS") then
     
    if (sibling.text == className) then
-     print(sibling.text)
-     
+--     print(sibling.text)
      return node
    end
-      
+   
   end
 
 end
@@ -21,7 +20,7 @@ function findMethod(props, methodName)
     if (value.key == "KeyValue") then
       local keyNameNode = value.data[1]
     
-      print(value.key, keyNameNode.key, keyNameNode.text)
+--      print(value.key, keyNameNode.key, keyNameNode.text)
     
       if (keyNameNode.key == "KeyName") and (keyNameNode.text == methodName) then
       
@@ -56,9 +55,94 @@ function selectProperties(astData, actualKey)
   
 end
 
-function subsequentMethodHelper(index, subsequentMethods, node)
+function findNameNode(node)
 
-  if (#node.data == 2) and (node.data[1].key == "Callable") and (node.data[2].key == "InvokeArgs") then
+  if (node.key == "Name") then
+  
+    return node.text
+    
+  else
+    
+    for key, value in pairs(node.data) do
+      
+      return findNameNode(value)
+      
+    end
+    
+  end
+
+end
+
+function checkIsClass(ast, className)
+
+  for key, value in pairs(ast.data) do
+    
+    classNode = findClass(value, ast.data[key + 1], className)
+    if (classNode) then
+     return true
+    else
+     isClass = checkIsClass(value, className)
+     if (isClass) then
+       return isClass
+     end   
+    end
+    
+  end
+
+  return false
+
+end
+
+function findClassNameNode(node, ast)
+
+  local name, isClass
+  if (node.key == "Chain") and (node.data[1].key == "Callable") and (node.data[2].key == "ChainItems") then
+    
+    name = findNameNode(node.data[1])
+    isClass = checkIsClass(ast, name)
+    
+    return isClass, name
+    
+  else
+    
+    for key, value in pairs(node.data) do
+      isClass, name = findClassNameNode(value, ast)
+      if (name) then
+        return isClass, name
+      end
+    end
+    
+  end
+
+end
+
+function subsequentMethodHelper(index, subsequentMethods, node, fullAst)
+
+  local variableInstances = {}
+
+--TODO weak condition - fails when there is a assign statement with simple value
+  if (#node.data == 2) and (node.key == "Statement") and (node.data[1].key == "ExpList") and (node.data[2].key == "Assign") then
+
+     variableName = findNameNode(node.data[1])
+     isClass, variableClass = findClassNameNode(node.data[2], fullAst)
+     
+     if (variableName) and (variableClass) then
+      
+--      print(isClass, variableClass)
+      if (isClass) then
+        variableInstances[variableName] = variableClass
+      else
+        subsequentMethods[index] = variableClass
+        index = index + 1
+      end
+     
+     end
+
+  elseif (node.key == "Chain") and (node.data[1].key == "Callable") and (node.data[2].key == "ChainItems") then
+
+--    implement function call from object
+
+  elseif (#node.data == 2) and (node.data[1].key == "Callable") and (node.data[2].key == "InvokeArgs") then
     
      subsequentMethods[index] = node.data[1].text
      index = index + 1
@@ -66,9 +150,13 @@ function subsequentMethodHelper(index, subsequentMethods, node)
   else
     for key, value in pairs(node.data) do
   
-      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, value)
+      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, value, fullAst)
   
     end
+  end
+  
+  for k, v in pairs(variableInstances) do
+    print(k, v)
   end
   
   return index, subsequentMethods
@@ -109,13 +197,13 @@ function find(ast, className, methodName)
   
 end 
 
-function getSubsequentMethods(introMethodNode)
+function getSubsequentMethods(ast, introMethodNode)
 
   local index = 0
   local subsequentMethods = {}
   local methodExp = introMethodNode.data[2]
   
-  index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, methodExp)
+  index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, methodExp, ast)
   
   return subsequentMethods
 end
