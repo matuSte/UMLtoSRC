@@ -2,6 +2,7 @@
 local luameg = require 'luameg'
 local helper = require './helper'
 local seq = require './seqdet'
+local generator = require './seq-generator'
 
 function getFileContent(name)
 
@@ -16,17 +17,21 @@ local code = getFileContent("moonscript_testfile/ms-source.moon")
 local ast = luameg.processText(code)
 
 local desiredClass = "Inventory"
-local introMethodNode = seq.find(ast, desiredClass, "new")
+local desiredMethod = "new"
+local introMethodNode = seq.find(ast, desiredClass, desiredMethod)
 local methods = seq.getSubsequentMethods(ast, introMethodNode, desiredClass)
 
+generator.generateSequenceDiagramTxt(methods, desiredClass, desiredMethod)
+generator.generateSequenceDiagramImage()
 
 --helper.printTable_r(introMethodNode)
 
-for index, call in pairs(methods) do
-  for key, value in pairs(call) do
-    print(index, key, value)
-  end
-  print("\n")
-end
+--for index, call in pairs(methods) do
+--  for key, value in pairs(call) do
+--    print(index, key, value)
+--  end
+--  print("\n")
+--end
+
 
 --helper.printTable_r(ast)
