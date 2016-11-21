@@ -55,6 +55,42 @@ function selectProperties(astData, actualKey)
   
 end
 
+--find class method that will be start point for sequence diagram
+function find(ast, className, methodName)
+  
+  for key, value in pairs(ast.data) do
+    
+    local classNode = findClass(value, ast.data[key + 1], className)
+    
+    if (classNode) then
+      
+--      properties array starts with index 2
+      local propsArray = selectProperties(ast.data, key)  
+      local methodNode = findMethod(propsArray.data, methodName)
+      
+      if (methodNode) then
+        return methodNode
+      end
+      
+    else
+      if (value.data) then
+        local result = find(value, className, methodName)
+        
+        if (result) then
+          return result
+        end
+        
+      end
+    end
+
+  end 
+  
+  return nil
+  
+end 
+
+--...................................................................
+
 function findNameNode(node)
 
   if (node.key == "Name") then
@@ -116,94 +152,133 @@ function findClassNameNode(node, ast)
 
 end
 
-function subsequentMethodHelper(index, subsequentMethods, node, fullAst)
+function hasFunctionChild(node)
+  if (node.key == "Chain") and (node.data[1].key == "Callable") and (node.data[2].key == "ChainItems") then
 
-  local variableInstances = {}
+    return true
+    
+  else
+    
+    for key, value in pairs(node.data) do
+      isFunction = hasFunctionChild(value)
+      if (isFunction) then
+        return isFunction
+      end
+    end
+    
+  end
+  return false
+end
+
+function subsequentMethodHelper(index, subsequentMethods, variableInstances, node, fullAst, actualClass)
+
+  local isAssign = (#node.data == 2) and (node.key == "Statement") and (node.data[1].key == "ExpList") and (node.data[2].key == "Assign")
+  local isFunctionCall = false
+  
+  if (isAssign) then
+    isFunctionCall = hasFunctionChild(node.data[2])
+  else
+    isFunctionCall = false
+  end
 
 --TODO weak condition - fails when there is a assign statement with simple value
-  if (#node.data == 2) and (node.key == "Statement") and (node.data[1].key == "ExpList") and (node.data[2].key == "Assign") then
+  if isAssign and isFunctionCall then
 
      variableName = findNameNode(node.data[1])
      isClass, variableClass = findClassNameNode(node.data[2], fullAst)
      
      if (variableName) and (variableClass) then
-      
---      print(isClass, variableClass)
+     
       if (isClass) then
         variableInstances[variableName] = variableClass
       else
-        subsequentMethods[index] = variableClass
+        subsequentMethods[index] = {
+          classCalledWithin = actualClass,
+          classCalledTo = actualClass,
+          structure = "method",
+          name = variableClass
+        }
         index = index + 1
+        
+--     lets investigate also calls within found method
+        local newIntroMethod = find(fullAst, actualClass, variableClass)
+        local newIntroMethodExp = newIntroMethod.data[2]
+        index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, actualClass)
+        
       end
      
      end
 
   elseif (node.key == "Chain") and (node.data[1].key == "Callable") and (node.data[2].key == "ChainItems") then
 
---    implement function call from object
+    variableName = findNameNode(node.data[1])
+    calledMethodName = node.data[2].data[1].data[1].text
+    
+    calledMethodNameWithoutBackslash = string.gsub(calledMethodName, "\\", "")
+    
+    if (variableInstances[variableName]) then
+      subsequentMethods[index] = {
+          classCalledWithin = actualClass,
+          classCalledTo = variableInstances[variableName],
+          structure = "method",
+          name = calledMethodNameWithoutBackslash
+        }
+      index = index + 1
+      
+--     lets investigate also calls within found method
+      local newIntroMethod = find(fullAst, variableInstances[variableName], calledMethodNameWithoutBackslash)
+      local newIntroMethodExp = newIntroMethod.data[2]
+      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, variableInstances[variableName])
+      
+    end
+    
+--    TODO: implement nested method calls
 
   elseif (#node.data == 2) and (node.data[1].key == "Callable") and (node.data[2].key == "InvokeArgs") then
     
-     subsequentMethods[index] = node.data[1].text
+     subsequentMethods[index] = {
+          classCalledWithin = actualClass,
+          classCalledTo = actualClass,
+          structure = "method",
+          name = node.data[1].text
+        }
      index = index + 1
+     
+--     lets investigate also calls within found method
+    if not (node.data[1].text == "print") then
+   
+      local newIntroMethod = find(fullAst, actualClass, node.data[1].text)
+      local newIntroMethodExp = newIntroMethod.data[2]
+      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, actualClass)
+    
+    end
     
   else
     for key, value in pairs(node.data) do
   
-      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, value, fullAst)
+      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, value, fullAst, actualClass)
   
     end
-  end
-  
-  for k, v in pairs(variableInstances) do
-    print(k, v)
   end
   
   return index, subsequentMethods
 
 end
 
---find class method that will be start point for sequence diagram
-function find(ast, className, methodName)
-  
-  for key, value in pairs(ast.data) do
-    
-    local classNode = findClass(value, ast.data[key + 1], className)
-    
-    if (classNode) then
-      
---      properties array starts with index 2
-      local propsArray = selectProperties(ast.data, key)  
-      local methodNode = findMethod(propsArray.data, methodName)
-      
-      if (methodNode) then
-        return methodNode
-      end
-      
-    else
-      if (value.data) then
-        local result = find(value, className, methodName)
-        
-        if (result) then
-          return result
-        end
-        
-      end
-    end
 
-  end 
-  
-  return nil
-  
-end 
 
-function getSubsequentMethods(ast, introMethodNode)
+function getSubsequentMethods(ast, introMethodNode, className)
 
   local index = 0
   local subsequentMethods = {}
+  local variableInstances = {}
   local methodExp = introMethodNode.data[2]
   
-  index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, methodExp, ast)
+  index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, methodExp, ast, className)
+  
+  for k, v in pairs(variableInstances) do
+    print(k, v)
+  end
   
   return subsequentMethods
 end

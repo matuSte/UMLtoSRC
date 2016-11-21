@@ -15,14 +15,18 @@ end
 local code = getFileContent("moonscript_testfile/ms-source.moon")
 local ast = luameg.processText(code)
 
-local introMethodNode = seq.find(ast, "Inventory", "new")
-local methods = seq.getSubsequentMethods(ast, introMethodNode)
+local desiredClass = "Inventory"
+local introMethodNode = seq.find(ast, desiredClass, "new")
+local methods = seq.getSubsequentMethods(ast, introMethodNode, desiredClass)
 
 
 --helper.printTable_r(introMethodNode)
 
-for key, value in pairs(methods) do
-  print(key, value)
+for index, call in pairs(methods) do
+  for key, value in pairs(call) do
+    print(index, key, value)
+  end
+  print("\n")
 end
 
 --helper.printTable_r(ast)
