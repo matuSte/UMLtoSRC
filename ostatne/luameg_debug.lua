@@ -194,12 +194,25 @@ if arg1 ~= nil then
 	elseif arg2 == "7" then
 		local classes = luameg.getAllClasses(AST)
 		local plant = luameg.getPlantUmlText(classes)
-		print(plant)
+		print(plant)	-- zdrojovy plant subor
 
-		local file = io.open("uml.txt", "w")
-		file:write(plant)
+		--[[local file = io.open("uml.txt", "w")
+		file:write(plant) 	-- zapis do txt suboru
 		file:close()
-		--os.execute("java -jar /home/matus/Stiahnuté/plantuml/plantuml.jar -tsvg uml.txt")
+
+		os.execute("java -jar plantuml.jar -quiet -tsvg uml.txt")
+
+		file = io.open("uml.svg", "r")
+		local text = file:read("*all") 	-- precitanie svg
+  		file:close()
+  		
+  		print("SVG::::")
+  		print(text)
+  		]]
+	elseif arg2 == "8" then
+		local svgText = luameg.getClassUmlSVG(AST)
+		print(":::::")
+		print(svgText)
 	end
 
 

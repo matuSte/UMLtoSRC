@@ -119,8 +119,11 @@ local function getAllClasses(ast)
 		local extendedClass = {}
 		local extendedClassTree = {}
 
+		-- mnozina vsetkych properties v triede
+		local setProps = {}
+
 		-- v classNameTree bude meno triedy (malo by byt len jedno v danom bloku/podstromu ClassDecl)
-		getChildNode(classDeclTree[i], "key", "Assignable", classNameTree)
+		getChildNode(classDeclTree[i], "key", "Name", classNameTree)
 
 		-- v classLinesTree budu podstromy vsetkych metod a properties v danom bloku/podstromu ClassDecl
 		getChildNode(classDeclTree[i], "key", "KeyValue", classLinesTree)
@@ -174,7 +177,11 @@ local function getAllClasses(ast)
 								if #expListTree > 0 then
 									getChildNode(expListTree[1], "key", "SelfName", selfNameTree)
 									if #selfNameTree > 0 then
-										table.insert(props, selfNameTree[1]["text"])
+										local t = selfNameTree[1]["text"]:gsub('%W', '')
+										if setProps[t] == nil or setProps[t] ~= true then
+											setProps[t] = true
+											table.insert(props, t)
+										end
 									end
 								end
 							end
@@ -186,7 +193,11 @@ local function getAllClasses(ast)
 					local propss = {}
 					getChildNode(classLinesTree[j], "key", "KeyName", propss)
 					if #propss ~= 0 then
-						table.insert(props, propss[1]["text"])
+						local t = propss[1]["text"]
+						if setProps[t] == nil or setProps[t] ~= true then
+							setProps[t] = true
+							table.insert(props, t)
+						end
 					end
 				end
 			end
@@ -318,11 +329,34 @@ local function getPlantUmlText(classes)
 	return out
 end
 
+-- This function need installed java, plantuml.jar and Graphviz-dot
+-- @param ast - AST table with tree
+-- @return Image with Class Diagram in SVG format
+function getClassUmlSVG(ast)
+	local classes = getAllClasses(ast)
+	local plant = getPlantUmlText(classes)
+
+	local file = io.open("_uml.txt", "w")
+	file:write(plant) 	-- zapis do txt suboru
+	file:close()
+
+	os.execute("java -jar plantuml.jar -quiet -tsvg _uml.txt")
+
+	file = io.open("_uml.svg", "r")
+	local text = file:read("*all") 	-- precitanie svg
+  	file:close()
+  	
+  	os.remove("_uml.txt")
+  	os.remove("_uml.svg")
+
+  	return text
+end
 
 return {
 	processText = processText,
 	getAllClasses = getAllClasses,
 	isValueInTree = isValueInTree,
 	getAST_treeSyntax = getAST_treeSyntax,
-	getPlantUmlText = getPlantUmlText
+	getPlantUmlText = getPlantUmlText,
+	getClassUmlSVG = getClassUmlSVG
 }
