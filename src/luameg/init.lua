@@ -340,6 +340,7 @@ function getClassUmlSVG(ast)
 	file:write(plant) 	-- zapis do txt suboru
 	file:close()
 
+	os.execute("pwd")
 	os.execute("java -jar plantuml.jar -quiet -tsvg _uml.txt")
 
 	file = io.open("_uml.svg", "r")
@@ -352,11 +353,27 @@ function getClassUmlSVG(ast)
   	return text
 end
 
+function getFileText(filename)
+	local f = assert(io.open(filename, "r"))
+	local text = f:read("*all")
+	f:close()
+
+	return text
+end
+
+function getClassUmlSVGFromFile(filename)
+	local text = getFileText(filename)
+	local ast = processText(text)
+	return getClassUmlSVG(ast)
+end
+
 return {
 	processText = processText,
 	getAllClasses = getAllClasses,
 	isValueInTree = isValueInTree,
 	getAST_treeSyntax = getAST_treeSyntax,
 	getPlantUmlText = getPlantUmlText,
-	getClassUmlSVG = getClassUmlSVG
+	getClassUmlSVG = getClassUmlSVG,
+	getClassUmlSVGFromFile = getClassUmlSVGFromFile,
+	getFileText = getFileText
 }
