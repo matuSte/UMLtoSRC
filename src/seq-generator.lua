@@ -14,15 +14,31 @@ function generateSequenceDiagramTxt(methodCalls, startingClass, startingMethod)
   
   for key, value in pairs(methodCalls) do
   
-    file:write(value.classCalledWithin .. " -> " .. value.classCalledTo .. " : " .. value.name .. "\n")
-    if not (alreadyUsedClasses[value.classCalledTo]) then
-      file:write("activate " .. value.classCalledTo .. "\n")
-      alreadyUsedClasses[value.classCalledTo] = true
+    if (value.structure == "method") then
+    
+      file:write(value.classCalledWithin .. " -> " .. value.classCalledTo .. " : " .. value.name .. "\n")
+      if not (alreadyUsedClasses[value.classCalledTo]) then
+        file:write("activate " .. value.classCalledTo .. "\n")
+        alreadyUsedClasses[value.classCalledTo] = true
+      end
+      
+    elseif (value.structure == "condition-if") then
+    
+      file:write("alt " .. value.name .. "\n")
+    
+    elseif (value.structure == "condition-else") then
+    
+      file:write("else " .. value.name .. "\n")
+    
+    elseif (value.structure == "condition-end") then
+    
+      file:write("end\n")
+    
     end
   
   end
   
---  file:write("deactivate " .. startingClass .. "\n")
+  file:write("deactivate " .. startingClass .. "\n")
   
   file:write("@enduml")
 

@@ -181,7 +181,7 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
     isFunctionCall = false
   end
 
---TODO weak condition - fails when there is a assign statement with simple value
+-- TODO: solve assigning value returned from method call on some Object
   if isAssign and isFunctionCall then
 
      variableName = findNameNode(node.data[1])
@@ -203,6 +203,7 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
 --     lets investigate also calls within found method
         local newIntroMethod = find(fullAst, actualClass, variableClass)
         local newIntroMethodExp = newIntroMethod.data[2]
+--        TODO: variableInstances array must be cloned before nested call, due to scope issues
         index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, actualClass)
         
       end
@@ -253,6 +254,56 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
     
     end
     
+  elseif (node.key == "If") then
+  
+    subsequentMethods[index] = {
+        classCalledWithin = actualClass,
+        classCalledTo = actualClass,
+        structure = "condition-if",
+        name = node.data[2].text
+    }
+    index = index + 1
+     
+    index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, node.data[3], fullAst, actualClass)
+  
+    for key, elseNode in pairs(node.data) do
+     
+      if (elseNode.key == "IfElseIf") then
+      
+        subsequentMethods[index] = {
+            classCalledWithin = actualClass,
+            classCalledTo = actualClass,
+            structure = "condition-else",
+            name = elseNode.data[3].text
+        }
+        index = index + 1
+         
+        index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, elseNode.data[4], fullAst, actualClass)
+  
+      elseif (elseNode.key == "IfElse") then
+      
+        subsequentMethods[index] = {
+            classCalledWithin = actualClass,
+            classCalledTo = actualClass,
+            structure = "condition-else",
+            name = "default"
+        }
+        index = index + 1
+         
+        index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, elseNode.data[3], fullAst, actualClass)
+        
+        subsequentMethods[index] = {
+            classCalledWithin = actualClass,
+            classCalledTo = actualClass,
+            structure = "condition-end",
+            name = ""
+        }
+        index = index + 1
+      
+      end
+     
+    end
+  
   else
     for key, value in pairs(node.data) do
   
@@ -276,9 +327,9 @@ function getSubsequentMethods(ast, introMethodNode, className)
   
   index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, methodExp, ast, className)
   
-  for k, v in pairs(variableInstances) do
-    print(k, v)
-  end
+--  for k, v in pairs(variableInstances) do
+--    print(k, v)
+--  end
   
   return subsequentMethods
 end
