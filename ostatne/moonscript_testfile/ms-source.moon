@@ -5,6 +5,7 @@ class BillsCalculator
   calculate_price: (n) =>
     @price += n
     print @price
+    return @price
     
     
 class TaxesCalculator
@@ -13,6 +14,9 @@ class TaxesCalculator
     @base = n
   calculate_taxes: (n) =>
     print @base
+    return @base
+  some_method: () =>
+    print "hey!"
 
 
 class Objekt
@@ -26,14 +30,15 @@ class Objekt
   	taxCalc = TaxesCalculator(20)
   	
   	if b > 300
-  	  billCalc\calculate_price(price)
-  	  taxCalc\calculate_taxes(price)
+  	  price = billCalc\calculate_price(price)
+  	  price = taxCalc\calculate_taxes(price)
   	  print price
   	elseif b > 200
-  	  billCalc\calculate_price(price)
+  	  price = billCalc\calculate_price(price)
   	  print price
   	elseif b > 100
-  	  taxCalc\calculate_taxes(price)
+  	  price = taxCalc\calculate_taxes(price)
+  	  taxCalc\some_method()
   	  print price
   	else
   	  print price

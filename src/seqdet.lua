@@ -170,7 +170,7 @@ function hasFunctionChild(node)
   return false
 end
 
-function subsequentMethodHelper(index, subsequentMethods, variableInstances, node, fullAst, actualClass)
+function subsequentMethodHelper(index, subsequentMethods, variableInstances, node, fullAst, actualClass, invokedFromClass)
 
   local isAssign = (#node.data == 2) and (node.key == "Statement") and (node.data[1].key == "ExpList") and (node.data[2].key == "Assign")
   local isFunctionCall = false
@@ -192,19 +192,19 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
       if (isClass) then
         variableInstances[variableName] = variableClass
       else
-        subsequentMethods[index] = {
-          classCalledWithin = actualClass,
-          classCalledTo = actualClass,
-          structure = "method",
-          name = variableClass
-        }
-        index = index + 1
+--        subsequentMethods[index] = {
+--          classCalledWithin = actualClass,
+--          classCalledTo = actualClass,
+--          structure = "method",
+--          name = variableClass
+--        }
+--        index = index + 1
         
 --     lets investigate also calls within found method
-        local newIntroMethod = find(fullAst, actualClass, variableClass)
-        local newIntroMethodExp = newIntroMethod.data[2]
+--        local newIntroMethod = find(fullAst, actualClass, variableClass)
+--        local newIntroMethodExp = newIntroMethod.data[2]
 --        TODO: variableInstances array must be cloned before nested call, due to scope issues
-        index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, actualClass)
+        index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, node.data[2], fullAst, actualClass, invokedFromClass)
         
       end
      
@@ -229,7 +229,7 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
 --     lets investigate also calls within found method
       local newIntroMethod = find(fullAst, variableInstances[variableName], calledMethodNameWithoutBackslash)
       local newIntroMethodExp = newIntroMethod.data[2]
-      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, variableInstances[variableName])
+      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, variableInstances[variableName], actualClass)
       
     end
     
@@ -250,7 +250,7 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
    
       local newIntroMethod = find(fullAst, actualClass, node.data[1].text)
       local newIntroMethodExp = newIntroMethod.data[2]
-      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, actualClass)
+      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, actualClass, actualClass)
     
     end
     
@@ -264,7 +264,7 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
     }
     index = index + 1
      
-    index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, node.data[3], fullAst, actualClass)
+    index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, node.data[3], fullAst, actualClass, invokedFromClass)
   
     for key, elseNode in pairs(node.data) do
      
@@ -278,7 +278,7 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
         }
         index = index + 1
          
-        index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, elseNode.data[4], fullAst, actualClass)
+        index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, elseNode.data[4], fullAst, actualClass, invokedFromClass)
   
       elseif (elseNode.key == "IfElse") then
       
@@ -290,7 +290,7 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
         }
         index = index + 1
          
-        index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, elseNode.data[3], fullAst, actualClass)
+        index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, elseNode.data[3], fullAst, actualClass, invokedFromClass)
         
         subsequentMethods[index] = {
             classCalledWithin = actualClass,
@@ -304,10 +304,20 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
      
     end
   
+  elseif (node.key == "Return") then
+  
+    subsequentMethods[index] = {
+       classCalledWithin = actualClass,
+       classCalledTo = invokedFromClass,
+       structure = "return",
+       name = ""
+    }
+    index = index + 1
+  
   else
     for key, value in pairs(node.data) do
   
-      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, value, fullAst, actualClass)
+      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, value, fullAst, actualClass, invokedFromClass)
   
     end
   end
@@ -325,7 +335,7 @@ function getSubsequentMethods(ast, introMethodNode, className)
   local variableInstances = {}
   local methodExp = introMethodNode.data[2]
   
-  index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, methodExp, ast, className)
+  index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, methodExp, ast, className, "")
   
 --  for k, v in pairs(variableInstances) do
 --    print(k, v)
