@@ -62,10 +62,14 @@ function generateSequenceDiagramTxt(methodCalls, startingClass, startingMethod)
     
       file:write("else " .. value.name .. "\n")
     
-    elseif (value.structure == "condition-end") then
+    elseif (value.structure == "condition-end") or (value.structure == "loop-end") then
     
       file:write("end\n")
       
+    elseif (value.structure == "loop") then
+    
+      file:write("loop " .. value.name .. "\n")
+    
     elseif (value.structure == "return") then
     
       file:write(value.classCalledWithin .. " --> " .. value.classCalledTo .. "\n")

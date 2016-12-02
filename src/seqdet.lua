@@ -170,6 +170,19 @@ function hasFunctionChild(node)
   return false
 end
 
+function constructLoopText(node)
+
+  local numOfNodes = #node.data
+  local loopText = ""
+  
+  for i = 2, numOfNodes - 1 do
+    loopText = loopText .. node.data[i].text
+  end
+
+  return loopText
+end
+
+-- ........................................................
 function subsequentMethodHelper(index, subsequentMethods, variableInstances, node, fullAst, actualClass, invokedFromClass)
 
   local isAssign = (#node.data == 2) and (node.key == "Statement") and (node.data[1].key == "ExpList") and (node.data[2].key == "Assign")
@@ -303,6 +316,50 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
       end
      
     end
+  
+  elseif (node.key == "For") then
+  
+    local loopText = constructLoopText(node)
+  
+    subsequentMethods[index] = {
+       classCalledWithin = actualClass,
+       classCalledTo = actualClass,
+       structure = "loop",
+       name = loopText
+    }
+    index = index + 1
+    
+--    here comes recursive call to For body
+    index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, node.data[#node.data], fullAst, actualClass, invokedFromClass)
+    
+    subsequentMethods[index] = {
+       classCalledWithin = actualClass,
+       classCalledTo = actualClass,
+       structure = "loop-end",
+       name = ""
+    }
+    index = index + 1
+  
+  elseif (node.key == "While") then
+  
+    subsequentMethods[index] = {
+       classCalledWithin = actualClass,
+       classCalledTo = actualClass,
+       structure = "loop",
+       name = node.data[2].text
+    }
+    index = index + 1
+    
+--    here comes recursive call to While body
+    index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, node.data[3], fullAst, actualClass, invokedFromClass)
+    
+    subsequentMethods[index] = {
+       classCalledWithin = actualClass,
+       classCalledTo = actualClass,
+       structure = "loop-end",
+       name = ""
+    }
+    index = index + 1
   
   elseif (node.key == "Return") then
   
