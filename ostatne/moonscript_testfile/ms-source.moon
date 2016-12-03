@@ -42,6 +42,12 @@ class Objekt
   	  print price
   	else
   	  print price
+  	  
+  	for i = 0, price - 100
+  	  print i
+  	while b > 0
+  	  print b
+  	  b -= 1
   	
 
 class Inventory extends Objekt
@@ -50,15 +56,20 @@ class Inventory extends Objekt
     b = 4
     obj = Objekt!
     count = setup_val()
+    result = @get_result(4, 5)
     obj\dummy_method()
     print ""
-    add_item "Jozo"
+    @add_item("Jozo")
 
   add_item: (name) =>
     print @@__name .. "." .. @owner .. " -> added item " .. name .. ". Actual count: " .. @items[name]
     temp = 2
     
   setup_val: () =>
-  	return 2
+    return 2
+  
+  get_result: (a, b) =>
+    return a + b
+  
   	
 

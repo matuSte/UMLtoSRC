@@ -93,7 +93,9 @@ end
 
 function findNameNode(node)
 
-  if (node.key == "Name") then
+--  print(node.text)
+
+  if (node.key == "Name") or (node.key == "SelfName") then
   
     return node.text
     
@@ -182,11 +184,64 @@ function constructLoopText(node)
   return loopText
 end
 
+function methodCall(index, subsequentMethods, variableInstances, node, fullAst, actualClass, invokedFromClass)
+
+    local cleanMethodName = string.gsub(node.data[1].text, "@", "")
+    local activatedClass
+    
+    print(cleanMethodName)
+    
+--     lets investigate also calls within found method
+    if not (cleanMethodName == "print") then
+   
+      activatedClass = actualClass
+      subsequentMethods[index] = {
+        classCalledWithin = actualClass,
+        classCalledTo = actualClass,
+        structure = "method",
+        name = cleanMethodName
+      }
+      index = index + 1
+   
+      print("Lets find method in class:", "." .. cleanMethodName .. ".", "." .. actualClass .. ".")
+      local newIntroMethod = find(fullAst, actualClass, cleanMethodName)
+      print(newIntroMethod)
+      local newIntroMethodExp = newIntroMethod.data[2]
+      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, actualClass, actualClass)
+      
+    else
+    
+      activatedClass = "System"
+      subsequentMethods[index] = {
+        classCalledWithin = actualClass,
+        classCalledTo = "System",
+        structure = "method",
+        name = cleanMethodName
+      }
+      index = index + 1
+    
+    end
+    
+    subsequentMethods[index] = {
+      classCalledWithin = actualClass,
+      classCalledTo = activatedClass,
+      structure = "method-end",
+      name = ""
+    }
+    index = index + 1
+
+    return index, subsequentMethods
+
+end
+
+
 -- ........................................................
 function subsequentMethodHelper(index, subsequentMethods, variableInstances, node, fullAst, actualClass, invokedFromClass)
 
   local isAssign = (#node.data == 2) and (node.key == "Statement") and (node.data[1].key == "ExpList") and (node.data[2].key == "Assign")
   local isFunctionCall = false
+  
+--  print(node.key)
   
   if (isAssign) then
     isFunctionCall = hasFunctionChild(node.data[2])
@@ -205,19 +260,38 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
       if (isClass) then
         variableInstances[variableName] = variableClass
       else
---        subsequentMethods[index] = {
---          classCalledWithin = actualClass,
---          classCalledTo = actualClass,
---          structure = "method",
---          name = variableClass
---        }
---        index = index + 1
         
 --     lets investigate also calls within found method
---        local newIntroMethod = find(fullAst, actualClass, variableClass)
+        local cleanMethodName = string.gsub(variableClass, "@", "")
+        local newIntroMethod = find(fullAst, actualClass, cleanMethodName)
 --        local newIntroMethodExp = newIntroMethod.data[2]
+        
 --        TODO: variableInstances array must be cloned before nested call, due to scope issues
-        index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, node.data[2], fullAst, actualClass, invokedFromClass)
+        if (newIntroMethod) then
+          local newIntroMethodExp = newIntroMethod.data[2]
+          subsequentMethods[index] = {
+            classCalledWithin = actualClass,
+            classCalledTo = actualClass,
+            structure = "method",
+            name = cleanMethodName
+          }
+          index = index + 1
+          
+          index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, actualClass, actualClass)
+        
+          subsequentMethods[index] = {
+            classCalledWithin = actualClass,
+            classCalledTo = actualClass,
+            structure = "method-end",
+            name = ""
+          }
+          index = index + 1
+        
+        else
+        
+          index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, node.data[2], fullAst, actualClass, invokedFromClass)
+        
+        end
         
       end
      
@@ -225,47 +299,50 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
 
   elseif (node.key == "Chain") and (node.data[1].key == "Callable") and (node.data[2].key == "ChainItems") then
 
-    variableName = findNameNode(node.data[1])
-    calledMethodName = node.data[2].data[1].data[1].text
+    local variableName = findNameNode(node.data[1])
+    local calledMethodName = node.data[2].data[1].data[1].text
     
-    calledMethodNameWithoutBackslash = string.gsub(calledMethodName, "\\", "")
+    local cleanVariableName = string.gsub(variableName, "@", "")
+    local calledMethodNameWithoutBackslash = string.gsub(calledMethodName, "\\", "")
     
-    if (variableInstances[variableName]) then
-      subsequentMethods[index] = {
+    local firstMethodCharacter = calledMethodNameWithoutBackslash:sub(1,1)
+    
+    if (firstMethodCharacter == "(") or (firstMethodCharacter == "!") then
+      index, subsequentMethods = methodCall(index, subsequentMethods, variableInstances, node, fullAst, actualClass, invokedFromClass)
+    else
+    
+      print("Method Call on Obj", cleanVariableName, calledMethodNameWithoutBackslash)
+      
+      if (variableInstances[cleanVariableName]) then
+        subsequentMethods[index] = {
+            classCalledWithin = actualClass,
+            classCalledTo = variableInstances[cleanVariableName],
+            structure = "method",
+            name = calledMethodNameWithoutBackslash
+          }
+        index = index + 1
+        
+  --     lets investigate also calls within found method
+        local newIntroMethod = find(fullAst, variableInstances[cleanVariableName], calledMethodNameWithoutBackslash)
+        local newIntroMethodExp = newIntroMethod.data[2]
+        index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, variableInstances[cleanVariableName], actualClass)
+        
+        subsequentMethods[index] = {
           classCalledWithin = actualClass,
-          classCalledTo = variableInstances[variableName],
-          structure = "method",
-          name = calledMethodNameWithoutBackslash
+          classCalledTo = variableInstances[cleanVariableName],
+          structure = "method-end",
+          name = ""
         }
-      index = index + 1
-      
---     lets investigate also calls within found method
-      local newIntroMethod = find(fullAst, variableInstances[variableName], calledMethodNameWithoutBackslash)
-      local newIntroMethodExp = newIntroMethod.data[2]
-      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, variableInstances[variableName], actualClass)
-      
+        index = index + 1
+      end
+    
     end
     
 --    TODO: implement nested method calls
 
   elseif (#node.data == 2) and (node.data[1].key == "Callable") and (node.data[2].key == "InvokeArgs") then
     
-     subsequentMethods[index] = {
-          classCalledWithin = actualClass,
-          classCalledTo = actualClass,
-          structure = "method",
-          name = node.data[1].text
-        }
-     index = index + 1
-     
---     lets investigate also calls within found method
-    if not (node.data[1].text == "print") then
-   
-      local newIntroMethod = find(fullAst, actualClass, node.data[1].text)
-      local newIntroMethodExp = newIntroMethod.data[2]
-      index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, actualClass, actualClass)
-    
-    end
+    index, subsequentMethods = methodCall(index, subsequentMethods, variableInstances, node, fullAst, actualClass, invokedFromClass)
     
   elseif (node.key == "If") then
   

@@ -35,7 +35,7 @@ function generateSequenceDiagramTxt(methodCalls, startingClass, startingMethod)
     if (value.structure == "method") then
     
 --    we need to deactivate inactive classes
-      file, alreadyUsedClasses, activeMethodCalls, activeClass = deactivationHelper(file, alreadyUsedClasses, activeMethodCalls, activeClass, value)
+--      file, alreadyUsedClasses, activeMethodCalls, activeClass = deactivationHelper(file, alreadyUsedClasses, activeMethodCalls, activeClass, value)
 
     
 --      create new method call only if it is to another class
@@ -49,10 +49,10 @@ function generateSequenceDiagramTxt(methodCalls, startingClass, startingMethod)
       end
     
       file:write(value.classCalledWithin .. " -> " .. value.classCalledTo .. " : " .. value.name .. "\n")
-      if not (alreadyUsedClasses[value.classCalledTo]) then
-        file:write("activate " .. value.classCalledTo .. "\n")
-        alreadyUsedClasses[value.classCalledTo] = true
-      end
+--      if not (alreadyUsedClasses[value.classCalledTo]) then
+      file:write("activate " .. value.classCalledTo .. "\n")
+--        alreadyUsedClasses[value.classCalledTo] = true
+--      end
       
     elseif (value.structure == "condition-if") then
     
@@ -73,8 +73,12 @@ function generateSequenceDiagramTxt(methodCalls, startingClass, startingMethod)
     elseif (value.structure == "return") then
     
       file:write(value.classCalledWithin .. " --> " .. value.classCalledTo .. "\n")
-      file:write("deactivate " .. value.classCalledWithin .. "\n")
+      
       alreadyUsedClasses[value.classCalledWithin] = false
+    
+    elseif (value.structure == "method-end") then
+    
+      file:write("deactivate " .. value.classCalledTo .. "\n")
     
     end
   
