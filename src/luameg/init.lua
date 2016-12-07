@@ -178,9 +178,11 @@ local function getAllClasses(ast)
 									getChildNode(expListTree[1], "key", "SelfName", selfNameTree)
 									if #selfNameTree > 0 then
 										local t = selfNameTree[1]["text"]:gsub('%W', '')
-										if setProps[t] == nil or setProps[t] ~= true then
-											setProps[t] = true
-											table.insert(props, t)
+										if #t ~= 0 then
+											if setProps[t] == nil or setProps[t] ~= true then
+												setProps[t] = true
+												table.insert(props, t)
+											end
 										end
 									end
 								end
@@ -193,10 +195,12 @@ local function getAllClasses(ast)
 					local propss = {}
 					getChildNode(classLinesTree[j], "key", "KeyName", propss)
 					if #propss ~= 0 then
-						local t = propss[1]["text"]
-						if setProps[t] == nil or setProps[t] ~= true then
-							setProps[t] = true
-							table.insert(props, t)
+						local t = propss[1]["text"]:gsub('%W', '')
+						if #t ~= 0 then
+							if setProps[t] == nil or setProps[t] ~= true then
+								setProps[t] = true
+								table.insert(props, t)
+							end
 						end
 					end
 				end
@@ -301,7 +305,7 @@ local function getPlantUmlText(classes)
 		out = out .. "class " .. classes[i]["name"] .. " {\n"
 
 		for j=1, #classes[i]["properties"] or 0 do
-			out = out .. "-" .. classes[i]["properties"][j] .. "\n"
+			out = out .. "+" .. classes[i]["properties"][j] .. "\n"
 		end
 
 		for j=1, #classes[i]["methods"] do

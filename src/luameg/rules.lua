@@ -7,7 +7,7 @@ local function Cp(...)
 end
 
 -- vrati poziciu a chytenu hodnotu zo vsetkymi vnorenymi hodnotami
-rules = {
+local rules = {
 	[1] = Cp(lpeg.V("File")),
     File = Cp(parser.rules.File),
     Block = Cp(parser.rules.Block),

@@ -194,7 +194,7 @@ local keys = {
 
 }
 
-captures = (function()
+local captures = (function()
   local keyNameRule, valueTypeNode
   local new_table = {}
 
