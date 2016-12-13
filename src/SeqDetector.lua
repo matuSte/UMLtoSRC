@@ -189,7 +189,7 @@ function methodCall(index, subsequentMethods, variableInstances, node, fullAst, 
     local cleanMethodName = string.gsub(node.data[1].text, "@", "")
     local activatedClass
     
-    print(cleanMethodName)
+--    print(cleanMethodName)
     
 --     lets investigate also calls within found method
     if not (cleanMethodName == "print") then
@@ -203,9 +203,9 @@ function methodCall(index, subsequentMethods, variableInstances, node, fullAst, 
       }
       index = index + 1
    
-      print("Lets find method in class:", "." .. cleanMethodName .. ".", "." .. actualClass .. ".")
+--      print("Lets find method in class:", "." .. cleanMethodName .. ".", "." .. actualClass .. ".")
       local newIntroMethod = find(fullAst, actualClass, cleanMethodName)
-      print(newIntroMethod)
+--      print(newIntroMethod)
       local newIntroMethodExp = newIntroMethod.data[2]
       index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, actualClass, actualClass)
       
@@ -311,7 +311,7 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
       index, subsequentMethods = methodCall(index, subsequentMethods, variableInstances, node, fullAst, actualClass, invokedFromClass)
     else
     
-      print("Method Call on Obj", cleanVariableName, calledMethodNameWithoutBackslash)
+--      print("Method Call on Obj", cleanVariableName, calledMethodNameWithoutBackslash)
       
       if (variableInstances[cleanVariableName]) then
         subsequentMethods[index] = {

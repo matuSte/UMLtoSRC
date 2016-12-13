@@ -88,7 +88,7 @@ function generateSequenceDiagramTxt(methodCalls, startingClass, startingMethod)
   
   file:write("@enduml")
 
-  file.close()
+  file:close()
 end
 
 function generateSequenceDiagramImage()

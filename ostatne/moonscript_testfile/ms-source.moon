@@ -15,60 +15,48 @@ class TaxesCalculator
   calculate_taxes: (n) =>
     print @base
     return @base
-  some_method: () =>
-    print "hey!"
 
 
-class Objekt
+class Space
   new: () =>
     @some = 0
 
-  dummy_method: () =>
-  	price = 477
+  calculate: (value) =>
+  	price = value
+  	b = 1
   	
   	billCalc = BillsCalculator(price)
   	taxCalc = TaxesCalculator(20)
   	
-  	if b > 300
-  	  price = billCalc\calculate_price(price)
-  	  price = taxCalc\calculate_taxes(price)
-  	  print price
-  	elseif b > 200
-  	  price = billCalc\calculate_price(price)
-  	  print price
-  	elseif b > 100
-  	  price = taxCalc\calculate_taxes(price)
-  	  taxCalc\some_method()
+  	if value > 300
+  	  price = billCalc\calculate_price(value)
+  	  price = taxCalc\calculate_taxes(value)
   	  print price
   	else
+  	  price = taxCalc\calculate_taxes(value)
   	  print price
-  	  
-  	for i = 0, price - 100
-  	  print i
+
   	while b > 0
   	  print b
   	  b -= 1
   	
 
-class Inventory extends Objekt
+class Inventory extends Space
   a: 5
+  item: ""
   new: (owner) =>
     b = 4
-    obj = Objekt!
-    count = setup_val()
-    result = @get_result(4, 5)
-    obj\dummy_method()
-    print ""
-    @add_item("Jozo")
+    obj = Space!
+    value = @get_value(100, 254)
+    obj\calculate(value)
+    @add_item("Sweets")
 
   add_item: (name) =>
-    print @@__name .. "." .. @owner .. " -> added item " .. name .. ". Actual count: " .. @items[name]
+    @item = name
+    print "added item " .. name
     temp = 2
-    
-  setup_val: () =>
-    return 2
   
-  get_result: (a, b) =>
+  get_value: () =>
     return a + b
   
   	
