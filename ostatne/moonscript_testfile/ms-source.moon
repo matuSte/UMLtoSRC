@@ -41,7 +41,7 @@ class Space
   	  b -= 1
   	
 
-class Inventory extends Space
+class Inventory
   a: 5
   item: ""
   new: (owner) =>
