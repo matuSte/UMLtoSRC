@@ -166,8 +166,8 @@ local function getAllClasses(ast)
 					if #methodd > 0 then
 						table.insert(methods, {["name"] = methodd[1]["text"], ["args"] = methodsArgs})
 
-						if methodd[1]["text"] == "new" then
-							-- vsetky selfname na lavej strane od Assign v Statement, v konstruktore new()
+						--if methodd[1]["text"] == "new" then
+						--	-- vsetky selfname na lavej strane od Assign v Statement, v konstruktore new()
 							local stmsTree = {}
 							getChildNode(classLinesTree[j], "key", "Statement", stmsTree)
 							for k=1, #stmsTree do
@@ -188,7 +188,7 @@ local function getAllClasses(ast)
 								end
 							end
 
-						end
+						--end
 					end
 				else 			
 					-- ziskanie vsetkych properties
@@ -336,7 +336,7 @@ end
 -- This function need installed java, plantuml.jar and Graphviz-dot
 -- @param ast - AST table with tree
 -- @return Image with Class Diagram in SVG format
-function getClassUmlSVG(ast)
+local function getClassUmlSVG(ast)
 	local classes = getAllClasses(ast)
 	local plant = getPlantUmlText(classes)
 
@@ -344,7 +344,7 @@ function getClassUmlSVG(ast)
 	file:write(plant) 	-- zapis do txt suboru
 	file:close()
 
-	os.execute("pwd")
+	-- os.execute("pwd")
 	os.execute("java -jar plantuml.jar -quiet -tsvg _uml.txt")
 
 	file = io.open("_uml.svg", "r")
@@ -357,7 +357,7 @@ function getClassUmlSVG(ast)
   	return text
 end
 
-function getFileText(filename)
+local function getFileText(filename)
 	local f = assert(io.open(filename, "r"))
 	local text = f:read("*all")
 	f:close()
@@ -365,7 +365,7 @@ function getFileText(filename)
 	return text
 end
 
-function getClassUmlSVGFromFile(filename)
+local function getClassUmlSVGFromFile(filename)
 	local text = getFileText(filename)
 	local ast = processText(text)
 	return getClassUmlSVG(ast)
