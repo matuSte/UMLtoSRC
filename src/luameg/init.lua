@@ -8,6 +8,12 @@ local rules = require 'luameg.rules'
 local AST_capt = require 'luameg.captures.AST'
 
 
+local filestree = require 'luadb.extraction.filestree'
+local luadb = require 'luadb.hypergraph'
+
+local extractorClass = require 'luameg.diagrams.extractorClass'
+
+
 
 lpeg.setmaxstack(400)
 
@@ -46,173 +52,17 @@ local function processText(code)
 	return result
 end
 
--- zapise do 'data' zoznam podstromov, pre ktore boli splnene key a value
--- @name getChildNode
--- @param ast - ast tree in table
--- @param key - which key in table must have value 'value'
--- @param value - required value from table
--- @param data - returned data. Contains all subtrees/subtables containing required value in key
-local function getChildNode(ast, key, value, data)
+-- @name proccessFile
+-- @param filename - file with source code
+-- @return ast
+local function processFile(filename)
+	local file = assert(io.open(filename, "r"))
+	local code = file:read("*all")
+	file:close()
 
-	for k, v in pairs(ast) do
-        if k ~= "parent" and k ~= "nodeid_references" and k ~= "text" then
-           	if k == key and v == value then
-           		table.insert(data, ast)
-           	end
-            if type(v) == "table" then
-                getChildNode(v, key, value, data)
-            end
-        end
-    end
+	return processText(code)
 end
 
--- @name isValueInTree
--- @param ast - AST tree in table
--- @param key - which key in table must have value 'value'
--- @param value - required value from key
--- @return true or false, and count of matches
-local function isValueInTree(ast, key, value)
-	local outResult = false
-	local outCount = 0
-
-	if (ast == nil) then
-		return outResult, outCount
-	end
-
-	if (ast[key] == value) then
-		outResult = true
-		outCount = outCount + 1
-	end
-
-	for i=1, #ast["data"] do
-		local result, count = isValueInTree(ast["data"][i], key, value)
-		
-		if result == true then
-			outResult = (outResult or result)
-			outCount = outCount + count
-		end
-	end
-
-	return outResult, outCount
-end
-
--- @name getAllClasses
--- @param ast - AST tree in table
--- @return list of names of all classes from AST with all methods and properties
---    { ["name"]=string, ["extended"]=string, ["properties"]={}, ["methods"]={["name"]=string, ["args"]={} } }
-local function getAllClasses(ast) 
-	local out = {["name"]=nil, ["extended"]=nil, ["properties"]=nil, ["methods"]=nil}
-
-	if ast == nil then
-		return out
-	end
-
-	-- ziska vsetky podstromy kde su definovane triedy (uzly ClassDecl)
-	local classDeclTree = {}
-	getChildNode(ast, "key", "ClassDecl", classDeclTree)
-
-	for i=1, #classDeclTree do
-		local classNameTree = {}
-		local classLinesTree = {}
-		local props = {}
-		local methods = {}
-		local extendedClass = {}
-		local extendedClassTree = {}
-
-		-- mnozina vsetkych properties v triede
-		local setProps = {}
-
-		-- v classNameTree bude meno triedy (malo by byt len jedno v danom bloku/podstromu ClassDecl)
-		getChildNode(classDeclTree[i], "key", "Name", classNameTree)
-
-		-- v classLinesTree budu podstromy vsetkych metod a properties v danom bloku/podstromu ClassDecl
-		getChildNode(classDeclTree[i], "key", "KeyValue", classLinesTree)
-
-
-		-- ziskanie extended class
-		for qq=1, #classDeclTree[i]["data"] do
-			if classDeclTree[i]["data"][qq]["key"] == "Exp" then
-				getChildNode(classDeclTree[i]["data"][qq], "key", "Name", extendedClassTree)
-			end
-		end
-
-		-- prevod tabulky extendedClass na string alebo nil. extendedClass by mal obsahovat iba jeden element
-		if #extendedClassTree > 0 then
-			extendedClass = extendedClassTree[1]["text"]
-		else
-			extendedClass = nil
-		end
-
-		-- ziskanie nazvu triedy. Nazov by mal byt iba jeden.
-		if (#classNameTree > 0) then
-
-			for j=1, #classLinesTree do
-				
-				local methodsArgsTrees2 = {}
-				local methodsArgsTrees = {}
-				local methodsArgs = {}
-
-				getChildNode(classLinesTree[j], "key", "FunLit", methodsArgsTrees)
-
-				-- ziskanie vsetkych metod
-				if #methodsArgsTrees > 0 then
-					getChildNode(methodsArgsTrees[1], "key", "FnArgDef", methodsArgsTrees2)
-					for k=1, #methodsArgsTrees2 do
-						table.insert(methodsArgs, methodsArgsTrees2[k]["data"][1]["text"])
-					end
-
-					local methodd = {}
-					getChildNode(classLinesTree[j], "key", "KeyName", methodd)
-					if #methodd > 0 then
-						table.insert(methods, {["name"] = methodd[1]["text"], ["args"] = methodsArgs})
-
-						--if methodd[1]["text"] == "new" then
-						--	-- vsetky selfname na lavej strane od Assign v Statement, v konstruktore new()
-							local stmsTree = {}
-							getChildNode(classLinesTree[j], "key", "Statement", stmsTree)
-							for k=1, #stmsTree do
-								local selfNameTree ={}
-								local expListTree ={}
-								getChildNode(stmsTree[k], "key", "ExpList", expListTree)
-								if #expListTree > 0 then
-									getChildNode(expListTree[1], "key", "SelfName", selfNameTree)
-									if #selfNameTree > 0 then
-										local t = selfNameTree[1]["text"]:gsub('%W', '')
-										if #t ~= 0 then
-											if setProps[t] == nil or setProps[t] ~= true then
-												setProps[t] = true
-												table.insert(props, t)
-											end
-										end
-									end
-								end
-							end
-
-						--end
-					end
-				else 			
-					-- ziskanie vsetkych properties
-					local propss = {}
-					getChildNode(classLinesTree[j], "key", "KeyName", propss)
-					if #propss ~= 0 then
-						local t = propss[1]["text"]:gsub('%W', '')
-						if #t ~= 0 then
-							if setProps[t] == nil or setProps[t] ~= true then
-								setProps[t] = true
-								table.insert(props, t)
-							end
-						end
-					end
-				end
-			end
-			
-			table.insert(out, {["name"]=classNameTree[1]["text"], ["extends"]=extendedClass, ["properties"]=props, ["methods"]=methods})
-		end
-		
-	end
-
-	return out
-end
 
 local function trim(str)
 	if type(str) == "string" then
@@ -229,6 +79,7 @@ local function replace(str)
 
 	return str
 end
+
 
 --[[
 @name getAST_treeSyntax
@@ -282,102 +133,65 @@ local function getAST_treeSyntax(ast, showText)
 	return newout
 end
 
+-- get class graph from ast (one file)
+local function getClassGraph(ast, graph)
+	local graph = graph or luadb.graph.new()
 
--- @param classes - list of names of all classes from AST with all methods and properties
---        format: {["name"], ["extended"], ["properties"], ["methods"]}
-local function getPlantUmlText(classes) 
-	local out = "@startuml\n"
-	local temp = ""
+	return extractorClass.getGraph(ast, graph)
+end
 
-	-- plantuml template:
-	--[[
-		@startuml
-		class [name] {
-			-[propertie]
-			+[method]([args])
-		}
+-- TODO: doplnit sekvencny diagram
+-- Return complete graph of project
+local function getGraphProject(dir)
 
-		[extends] <|-- [name]
-		@enduml
-	]]
+	-- vytvori sa graf so subormi a zlozkami
+	local graphProject = filestree.extract(dir)
 
-	for i=1, #classes do
-		out = out .. "class " .. classes[i]["name"] .. " {\n"
+	-- prejde sa grafom
+	for i=1, #graphProject.nodes do
+		local nodeFile = graphProject.nodes[i]
 
-		for j=1, #classes[i]["properties"] or 0 do
-			out = out .. "+" .. classes[i]["properties"][j] .. "\n"
-		end
+		-- ak je dany uzol typu subor a ma koncovku .moon
+		if nodeFile.meta.type == "file" then
+			if nodeFile.data.name:match("^.+(%..+)$") == ".moon" then
 
-		for j=1, #classes[i]["methods"] do
-			out = out .. "+" .. classes[i]["methods"][j]["name"] .. "("
-			for k=1, #classes[i]["methods"][j]["args"] do
-				if k ~= #classes[i]["methods"][j]["args"] then
-					out = out .. classes[i]["methods"][j]["args"][k] .. ", "
-				else 
-					out = out .. classes[i]["methods"][j]["args"][k]
+				-- vytvorit AST z jedneho suboru a nasledne novy graf
+				local ast = processFile(nodeFile.data.path)
+				local graphFile = extractorClass.getGraph(ast)
+
+
+				-- priradi z noveho grafu jednotlive uzly a hrany do kompletneho grafu
+				for j=1, #graphFile.nodes do
+					graphProject:addNode(graphFile.nodes[j])
+
+					-- vytvori sa hrana "subor obsahuje triedu"
+					if graphFile.nodes[j].data.type == "Class" then
+						local newEdge = luadb.edge.new()
+						newEdge.data.name = "Contains"
+						newEdge.data.type = "Contains"
+						newEdge:setSource(nodeFile)
+						newEdge:setTarget(graphFile.nodes[j])
+
+						graphProject:addEdge(newEdge)
+					end
 				end
+				for j=1, #graphFile.edges do
+					graphProject:addEdge(graphFile.edges[j])
+				end
+				
 			end
-			out = out .. ")\n"
-		end
-
-		out = out .. "}\n"
-
-		if classes[i]["extends"] ~= nil then
-			temp = temp .. classes[i]["extends"] .. " <|-- " .. classes[i]["name"] .. "\n"
 		end
 	end
 
-	out = out .. "\n" .. temp
-	out = out .. "@enduml\n" 
-
-	return out
-end
-
--- This function need installed java, plantuml.jar and Graphviz-dot
--- @param ast - AST table with tree
--- @return Image with Class Diagram in SVG format
-local function getClassUmlSVG(ast)
-	local classes = getAllClasses(ast)
-	local plant = getPlantUmlText(classes)
-
-	local file = io.open("_uml.txt", "w")
-	file:write(plant) 	-- zapis do txt suboru
-	file:close()
-
-	-- os.execute("pwd")
-	os.execute("java -jar plantuml.jar -quiet -tsvg _uml.txt")
-
-	file = io.open("_uml.svg", "r")
-	local text = file:read("*all") 	-- precitanie svg
-  	file:close()
-  	
-  	os.remove("_uml.txt")
-  	os.remove("_uml.svg")
-
-  	return text
-end
-
-local function getFileText(filename)
-	local f = assert(io.open(filename, "r"))
-	local text = f:read("*all")
-	f:close()
-
-	return text
-end
-
-local function getClassUmlSVGFromFile(filename)
-	local text = getFileText(filename)
-	local ast = processText(text)
-	return getClassUmlSVG(ast)
+	return graphProject
 end
 
 return {
 	processText = processText,
-	getAllClasses = getAllClasses,
-	isValueInTree = isValueInTree,
+	processFile = processFile,
 	getAST_treeSyntax = getAST_treeSyntax,
-	getPlantUmlText = getPlantUmlText,
-	getClassUmlSVG = getClassUmlSVG,
-	getClassUmlSVGFromFile = getClassUmlSVGFromFile,
-	getFileText = getFileText
+	getGraphProject = getGraphProject,
+	getClassGraph = getClassGraph,
+
+	getClassUmlSVGFromFile = extractorClass.getClassUmlSVGFromFile	-- docasne
 }
