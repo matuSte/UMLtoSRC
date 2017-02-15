@@ -167,8 +167,7 @@ local function getGraphProject(dir)
 					-- vytvori sa hrana "subor obsahuje triedu"
 					if graphFile.nodes[j].data.type == "Class" then
 						local newEdge = luadb.edge.new()
-						newEdge.data.name = "Contains"
-						newEdge.data.type = "Contains"
+						newEdge.label = "Contains"
 						newEdge:setSource(nodeFile)
 						newEdge:setTarget(graphFile.nodes[j])
 

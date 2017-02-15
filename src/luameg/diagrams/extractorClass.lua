@@ -293,8 +293,7 @@ local function getGraph(ast, graph)
 			end
 
 			local edge = luadb.edge.new()
-			edge.data.type = "Extends"
-			edge.data.name = "Extends"
+			edge.label = "Extends"
 			edge:setSource(nodeClass)
 			edge:setTarget(nodeExtended)
 
@@ -309,8 +308,7 @@ local function getGraph(ast, graph)
 			nodeMethod.data.args = classes[i]["methods"][j]["args"]
 
 			local edge = luadb.edge.new()
-			edge.data.type = "Contains"
-			edge.data.name = "Contains"
+			edge.label = "Contains"
 			edge:setSource(nodeClass)
 			edge:setTarget(nodeMethod)
 
@@ -325,8 +323,7 @@ local function getGraph(ast, graph)
 			nodeProp.data.name = classes[i]["properties"][j]
 
 			local edge = luadb.edge.new()
-			edge.data.type = "Contains"
-			edge.data.name = "Contains"
+			edge.label = "Contains"
 			edge:setSource(nodeClass)
 			edge:setTarget(nodeProp)
 
