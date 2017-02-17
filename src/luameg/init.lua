@@ -11,7 +11,7 @@ local AST_capt = require 'luameg.captures.AST'
 local filestree = require 'luadb.extraction.filestree'
 local hypergraph = require 'luadb.hypergraph'
 
-local extractorClass = require 'luameg.diagrams.extractorClass'
+local extractorClass = require 'luameg.extractors.extractorClass'
 
 
 
@@ -84,12 +84,25 @@ local function getGraphProject(dir)
 	-- vytvori sa graf so subormi a zlozkami
 	local graphProject = filestree.extract(dir)
 
+	-- vytvori sa uzol pre projekt a pripoji sa k prvemu uzlu s adresarom
+	local projectNode = hypergraph.node.new()
+	projectNode.data.name = "Project " .. dir   -- TODO: vyriesit ziskanie nazvu projektu
+	projectNode.meta = projectNode.meta or {}
+	projectNode.meta.type = "Project"
+	local projectEdge = hypergraph.edge.new()
+	projectEdge.label = "Contains"
+	projectEdge:setSource(projectNode)
+	projectEdge:setTarget(graphProject.nodes[1])
+	projectEdge:setAsOriented()
+	graphProject:addNode(projectNode)
+	graphProject:addEdge(projectEdge)
+
 	-- prejde sa grafom
 	for i=1, #graphProject.nodes do
 		local nodeFile = graphProject.nodes[i]
 
 		-- ak je dany uzol typu subor
-		if nodeFile.meta.type == "file" then
+		if nodeFile.meta ~= nil and nodeFile.meta.type == "file" then
 
 			-- ak je subor s koncovkou .moon
 			if nodeFile.data.name:match("^.+(%..+)$") == ".moon" then
@@ -104,8 +117,11 @@ local function getGraphProject(dir)
 				for j=1, #graphFileClass.nodes do
 					graphProject:addNode(graphFileClass.nodes[j])
 
+					if graphFileClass.nodes[j].meta == nil then
+						print(graphFileClass.nodes[j].data.name)
+					end
 					-- vytvori sa hrana "subor obsahuje triedu"
-					if graphFileClass.nodes[j].data.type == "Class" then
+					if graphFileClass.nodes[j].meta.type == "Class" then
 						local newEdge = hypergraph.edge.new()
 						newEdge.label = "Contains"
 						newEdge:setSource(nodeFile)

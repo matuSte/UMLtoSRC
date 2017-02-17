@@ -200,7 +200,8 @@ local function getGraph(ast, graph)
 		local nodeClass = graph:findNodeByName(className)
 		if #nodeClass == 0 or nodeClass == nil then
 			nodeClass = luadb.node.new()
-			nodeClass.data.type = "Class"
+			nodeClass.meta = nodeClass.meta or {}
+			nodeClass.meta.type = "Class"
 			nodeClass.data.name = className
 
 			graph:addNode(nodeClass)
@@ -213,7 +214,8 @@ local function getGraph(ast, graph)
 			local nodeExtended = graph:findNodeByName(classes[i]["extends"]["text"]) 
 			if #nodeExtended == 0 then
 				nodeExtended = luadb.nodeClass.new()
-				nodeExtended.data.type = "Class"
+				nodeExtended.meta = nodeExtended.meta or {}
+				nodeExtended.meta.type = "Class"
 				nodeExtended.data.name = classes[i]["extends"]["text"]
 				graph:addNode(nodeExtended)
 			else 
@@ -232,7 +234,8 @@ local function getGraph(ast, graph)
 		-- methods
 		for j=1, #classes[i]["methods"] do
 			local nodeMethod = luadb.node.new()
-			nodeMethod.data.type = "Method"
+			nodeMethod.meta = nodeMethod.meta or {}
+			nodeMethod.meta.type = "Method"
 			nodeMethod.data.name = classes[i]["methods"][j]["name"]["text"]
 			
 			-- arguments as array in method node
@@ -256,7 +259,8 @@ local function getGraph(ast, graph)
 		-- properties
 		for j=1, #classes[i]["properties"] do
 			local nodeProp = luadb.node.new()
-			nodeProp.data.type = "Property"
+			nodeProp.meta = nodeProp.meta or {}
+			nodeProp.meta.type = "Property"
 			nodeProp.data.name = classes[i]["properties"][j]["text"]:gsub('%W', '')
 
 			local edge = luadb.edge.new()
