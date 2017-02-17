@@ -2,10 +2,6 @@
 local pairs, type, print, table = pairs, type, print, table
 
 
-
--- module('luameg.captures.AST')
-
-
 -- set correct order and parent values for each child
 local function processChildren(data)
 	for k,v in pairs(data.data) do

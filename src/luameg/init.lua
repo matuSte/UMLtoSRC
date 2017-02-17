@@ -9,7 +9,7 @@ local AST_capt = require 'luameg.captures.AST'
 
 
 local filestree = require 'luadb.extraction.filestree'
-local luadb = require 'luadb.hypergraph'
+local hypergraph = require 'luadb.hypergraph'
 
 local extractorClass = require 'luameg.diagrams.extractorClass'
 
@@ -45,6 +45,7 @@ end
 -- returns an AST
 -- @name processText
 -- @param code - string containing the source code to be analyzed
+-- @return ast for moonscript
 local function processText(code)
 
 	local result = patt:match(code)[1]
@@ -54,7 +55,7 @@ end
 
 -- @name proccessFile
 -- @param filename - file with source code
--- @return ast
+-- @return ast for moonscript
 local function processFile(filename)
 	local file = assert(io.open(filename, "r"))
 	local code = file:read("*all")
@@ -64,84 +65,20 @@ local function processFile(filename)
 end
 
 
-local function trim(str)
-	if type(str) == "string" then
-		return str:gsub("^%s*(.-)%s*$", "%1")
-	end
-
-	return str
-end
-
-local function replace(str) 
-	if type(str) == "string" then
-		return str:gsub("\"", "'"):gsub("_", " "):gsub("\n", "\\n"):gsub("\r\n", "\\n"):gsub('%[', "("):gsub('%]', ")"):gsub('>', 'gt'):gsub('<', 'lt')
-	end
-
-	return str
-end
-
-
---[[
-@name getAST_treeSyntax
-@param ast - AST tree in table
-@param showText - optional number parameter. 
-			nil or 1 - do not show element text; 2 - show only leaf text; 3 - show text from all nodes; 4 - show text from all nodes below Line node
-			all texts are modified (replaced characters as [, ], >, ", etc.) and trimed
-Return something like: 
-   "[1 [File [Block [Line [CheckIndent ] [Statement [ExpList [Exp [Value [ChainValue [Callable [Name ] ] ] ] ] ] [Assign [ExpListLow [Exp [Value [SimpleValue ] ] ] ] ] ] ] [Line ] ] ] ]"
-
-String put to: 
- http://www.yohasebe.com/rsyntaxtree/				-- slow, export to PNG, SVG, PDF
- http://ironcreek.net/phpsyntaxtree/				-- fast, export to PNG, SVG
- http://mshang.ca/syntree/							-- problem with big tree
-]]
-local function getAST_treeSyntax(ast, showText) 
-	local showText = showText or 1
-
-	local newout = ""
-
-	if (ast == nil) then
-		return ""
-	end
-
-	newout = "[" .. ast["key"]
-
-	-- show all text
-	if (showText == 3) then
-		newout = newout .. ' [ "' .. replace(trim(ast["text"])) .. '"] '
-	end
-
-	-- show all text better
-	if (showText == 4) then
-		if ast["key"] ~= "Line" and ast["key"] ~= "Block" and ast["key"] ~= "File" 
-			and ast["key"] ~= 1 and ast["key"] ~= "CHUNK" then
-			newout = newout .. ' [ "' .. replace(trim(ast["text"])) .. '"] '
-		end
-	end
-
-	-- show text only from leaf
-	if (showText == 2 and #ast["data"] == 0) then
-		newout = newout .. ' [ " ' .. replace(trim(ast["text"])).. '"] '
-	end
-
-	for i=1,#ast["data"] do
-		-- show all text
-		newout = newout .. " " .. getAST_treeSyntax(ast["data"][i], showText)
-	end
-	newout = newout .. " ]"
-	
-	return newout
-end
-
 -- get class graph from ast (one file)
+-- @name getClassGraph
+-- @param ast - ast from luameg (moonscript) from which is extracted new graph or inserted new nodes and edges to graph
+-- @param graph - optional. Graph which is filled.
+-- @return graph with class nodes, methods, properties and arguments.
 local function getClassGraph(ast, graph)
-	local graph = graph or luadb.graph.new()
+	local graph = graph or hypergraph.graph.new()
 
 	return extractorClass.getGraph(ast, graph)
 end
 
 -- TODO: doplnit sekvencny diagram
--- Return complete graph of project
+-- @param dir - Directory with moonscript project
+-- @return Return complete graph of project
 local function getGraphProject(dir)
 
 	-- vytvori sa graf so subormi a zlozkami
@@ -151,31 +88,37 @@ local function getGraphProject(dir)
 	for i=1, #graphProject.nodes do
 		local nodeFile = graphProject.nodes[i]
 
-		-- ak je dany uzol typu subor a ma koncovku .moon
+		-- ak je dany uzol typu subor
 		if nodeFile.meta.type == "file" then
+
+			-- ak je subor s koncovkou .moon
 			if nodeFile.data.name:match("^.+(%..+)$") == ".moon" then
 
 				-- vytvorit AST z jedneho suboru a nasledne novy graf
-				local ast = processFile(nodeFile.data.path)
-				local graphFile = extractorClass.getGraph(ast)
+				local astFile = processFile(nodeFile.data.path)
 
+				-- ziska sa graf s triedami pre jeden subor
+				local graphFileClass = getClassGraph(astFile)
 
-				-- priradi z noveho grafu jednotlive uzly a hrany do kompletneho grafu
-				for j=1, #graphFile.nodes do
-					graphProject:addNode(graphFile.nodes[j])
+				-- priradi z grafu jednotlive uzly a hrany do kompletneho vysledneho grafu
+				for j=1, #graphFileClass.nodes do
+					graphProject:addNode(graphFileClass.nodes[j])
 
 					-- vytvori sa hrana "subor obsahuje triedu"
-					if graphFile.nodes[j].data.type == "Class" then
-						local newEdge = luadb.edge.new()
+					if graphFileClass.nodes[j].data.type == "Class" then
+						local newEdge = hypergraph.edge.new()
 						newEdge.label = "Contains"
 						newEdge:setSource(nodeFile)
-						newEdge:setTarget(graphFile.nodes[j])
+						newEdge:setTarget(graphFileClass.nodes[j])
+						newEdge:setAsOriented()
 
 						graphProject:addEdge(newEdge)
 					end
 				end
-				for j=1, #graphFile.edges do
-					graphProject:addEdge(graphFile.edges[j])
+
+				-- priradia sa vsetky hrany z grafu pre triedy do kompletneho vystupneho grafu
+				for j=1, #graphFileClass.edges do
+					graphProject:addEdge(graphFileClass.edges[j])
 				end
 				
 			end
@@ -188,9 +131,6 @@ end
 return {
 	processText = processText,
 	processFile = processFile,
-	getAST_treeSyntax = getAST_treeSyntax,
 	getGraphProject = getGraphProject,
-	getClassGraph = getClassGraph,
-
-	getClassUmlSVGFromFile = extractorClass.getClassUmlSVGFromFile	-- docasne
+	getClassGraph = getClassGraph
 }
