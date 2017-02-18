@@ -16,7 +16,7 @@ Ukazka vystupnej tabulky dataOut:
 
 @param graph - luaDB graph with class graph
 @param nodeName - name of node for search
-@param dataOut - optional. Using in recusive. dataOut is returned.
+@param dataOut - optional. Using in recursion. dataOut is returned.
 @return table with all collected info for class diagram from this nodeName
 ]]--
 local function getTableFromClassNode(graph, nodeName, dataOut)
@@ -63,7 +63,7 @@ end
 --
 -- @param graph - luaDB graph with class graph
 -- @param nodeName - name of node for search
--- @param dataOut - optional. Using in recusive. dataOut is returned.
+-- @param dataOut - optional. Using in recursion. dataOut is returned.
 -- @return table with all collected info for class diagram from this nodeName
 local function getTableFromFileNode(graph, nodeName, outData)
 	local outData = outData or {}
@@ -123,7 +123,7 @@ end
 
 -- @param graph - luaDB graph with class graph
 -- @param nodeName - name of node for search
--- @param dataOut - optional. Using in recusive. dataOut is returned.
+-- @param dataOut - optional. Using in recursion. dataOut is returned.
 -- @return table with all collected info for class diagram from this nodeName
 local function getTableFromProjectNode(graph, nodeName, outData)
 	local outData = outData or {}
@@ -202,7 +202,7 @@ local function getPlantUmlFromNode(graph, nodeName)
 
 	local strExtends = ""
 
-	-- z nazbieranych dat as vytvori text pre plantuml
+	-- z nazbieranych dat sa vytvori text pre plantuml
 	for key, value in pairs(data) do
 		-- TODO: pripravit text pre plantUML
 		strOut = appendText(strOut, "class " .. key .. " {\n")
@@ -258,83 +258,6 @@ local function getImageFromNode(graph, nodeName)
   	os.remove("_uml.svg")
   	
   	-- vrati sa text SVG
-  	return text
-end
-
-
--- @Deprecated
--- @param classes - list of names of all classes from AST with all methods and properties
---        format: {["name"], ["extends"], ["properties"], ["methods"]}
-local function getPlantUmlText(classes) 
-	local out = "@startuml\n"
-	local temp = ""
-
-	-- plantuml template:
-	--[[
-		@startuml
-		class [name] {
-			+[property]
-			+[method]([args])
-		}
-
-		[extends] <|-- [name]
-		@enduml
-	]]
-
-	for i=1, #classes do
-		out = out .. "class " .. classes[i]["name"] .. " {\n"
-
-		for j=1, #classes[i]["properties"] or 0 do
-			out = out .. "+" .. classes[i]["properties"][j] .. "\n"
-		end
-
-		for j=1, #classes[i]["methods"] do
-			out = out .. "+" .. classes[i]["methods"][j]["name"] .. "("
-			for k=1, #classes[i]["methods"][j]["args"] do
-				if k ~= #classes[i]["methods"][j]["args"] then
-					out = out .. classes[i]["methods"][j]["args"][k] .. ", "
-				else 
-					out = out .. classes[i]["methods"][j]["args"][k]
-				end
-			end
-			out = out .. ")\n"
-		end
-
-		out = out .. "}\n"
-
-		if classes[i]["extends"] ~= nil then
-			temp = temp .. classes[i]["extends"] .. " <|-- " .. classes[i]["name"] .. "\n"
-		end
-	end
-
-	out = out .. "\n" .. temp
-	out = out .. "@enduml\n" 
-
-	return out
-end
-
--- @Deprecated
--- This function need installed java, plantuml.jar and Graphviz-dot
--- @param ast - ast from luameg (moonscript)
--- @return Image with Class Diagram in SVG format
-local function getClassUmlSVG(ast)
-	local classes = getAllClasses(ast)
-	local plant = getPlantUmlText(classes)
-
-	local file = io.open("_uml.txt", "w")
-	file:write(plant) 	-- zapis do txt suboru
-	file:close()
-
-	-- os.execute("pwd")
-	os.execute("java -jar plantuml.jar -quiet -tsvg _uml.txt")
-
-	file = io.open("_uml.svg", "r")
-	local text = file:read("*all") 	-- precitanie svg
-  	file:close()
-  	
-  	os.remove("_uml.txt")
-  	os.remove("_uml.svg")
-  	
   	return text
 end
 
