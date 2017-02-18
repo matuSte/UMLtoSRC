@@ -213,7 +213,7 @@ local function getGraph(ast, graph)
 		if classes[i]["extends"] ~= nil then
 			local nodeExtended = graph:findNodeByName(classes[i]["extends"]["text"]) 
 			if #nodeExtended == 0 then
-				nodeExtended = luadb.nodeClass.new()
+				nodeExtended = luadb.node.new()
 				nodeExtended.meta = nodeExtended.meta or {}
 				nodeExtended.meta.type = "Class"
 				nodeExtended.data.name = classes[i]["extends"]["text"]
