@@ -204,13 +204,19 @@ local function getPlantUmlFromNode(graph, nodeName)
 
 	-- z nazbieranych dat sa vytvori text pre plantuml
 	for key, value in pairs(data) do
-		-- TODO: pripravit text pre plantUML
+		-- trieda
 		strOut = appendText(strOut, "class " .. key .. " {\n")
+		
+		-- properties
 		for i=1, #value["properties"] do
 			strOut = appendText(strOut, "\t+" .. value["properties"][i] .. "\n")
 		end
+		
+		-- methods
 		for i=1, #value["methods"] do
 			strOut = appendText(strOut, "\t+" .. value["methods"][i]["name"] .. "(")
+			
+			-- arguments
 			for j=1, #value["methods"][i]["args"] do
 				if j == #value["methods"][i]["args"] then
 					strOut = appendText(strOut, value["methods"][i]["args"][j])
@@ -220,8 +226,11 @@ local function getPlantUmlFromNode(graph, nodeName)
 			end
 			strOut = appendText(strOut, ")\n")
 		end
+		
+		-- end of class block
 		strOut = appendText(strOut, "}\n")
 
+		-- extends
 		if value["extends"] ~= nil then
 			strExtends = appendText(strExtends, value["extends"] .. " <|-- " .. key .. "\n")
 		end
