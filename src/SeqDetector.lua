@@ -4,7 +4,7 @@ function findClass(node, sibling, className)
   if (node.key == "CLASS") then
     
    if (sibling.text == className) then
---     print(sibling.text)
+    --  print(sibling.text)
      return node
    end
    
@@ -20,7 +20,7 @@ function findMethod(props, methodName)
     if (value.key == "KeyValue") then
       local keyNameNode = value.data[1]
     
---      print(value.key, keyNameNode.key, keyNameNode.text)
+    --  print(value.key, keyNameNode.key, keyNameNode.text)
     
       if (keyNameNode.key == "KeyName") and (keyNameNode.text == methodName) then
       
@@ -64,7 +64,7 @@ function find(ast, className, methodName)
     
     if (classNode) then
       
---      properties array starts with index 2
+    --  properties array starts with index 2
       local propsArray = selectProperties(ast.data, key)  
       local methodNode = findMethod(propsArray.data, methodName)
       
@@ -92,8 +92,6 @@ end
 --...................................................................
 
 function findNameNode(node)
-
---  print(node.text)
 
   if (node.key == "Name") or (node.key == "SelfName") then
   
@@ -189,9 +187,9 @@ function methodCall(index, subsequentMethods, variableInstances, node, fullAst, 
     local cleanMethodName = string.gsub(node.data[1].text, "@", "")
     local activatedClass
     
---    print(cleanMethodName)
+    -- print(cleanMethodName)
     
---     lets investigate also calls within found method
+    -- lets investigate also calls within found method
     if not (cleanMethodName == "print") then
    
       activatedClass = actualClass
@@ -203,9 +201,9 @@ function methodCall(index, subsequentMethods, variableInstances, node, fullAst, 
       }
       index = index + 1
    
---      print("Lets find method in class:", "." .. cleanMethodName .. ".", "." .. actualClass .. ".")
+    --  print("Lets find method in class:", "." .. cleanMethodName .. ".", "." .. actualClass .. ".")
       local newIntroMethod = find(fullAst, actualClass, cleanMethodName)
---      print(newIntroMethod)
+    --  print(newIntroMethod)
       local newIntroMethodExp = newIntroMethod.data[2]
       index, subsequentMethods = subsequentMethodHelper(index, subsequentMethods, variableInstances, newIntroMethodExp, fullAst, actualClass, actualClass)
       
@@ -234,23 +232,27 @@ function methodCall(index, subsequentMethods, variableInstances, node, fullAst, 
 
 end
 
+-- imports area starts
 
+local assignModule = require './seqCreator/seqDetector/assignMethodCall'
+
+-- imports area ends
 -- ........................................................
 function subsequentMethodHelper(index, subsequentMethods, variableInstances, node, fullAst, actualClass, invokedFromClass)
 
-  local isAssign = (#node.data == 2) and (node.key == "Statement") and (node.data[1].key == "ExpList") and (node.data[2].key == "Assign")
+  -- local isAssign = (#node.data == 2) and (node.key == "Statement") and (node.data[1].key == "ExpList") and (node.data[2].key == "Assign")
   local isFunctionCall = false
   
---  print(node.key)
+  --  print(node.key)
   
-  if (isAssign) then
+  if (assignModule.isAssignStatement(node)) then
     isFunctionCall = hasFunctionChild(node.data[2])
   else
     isFunctionCall = false
   end
 
--- TODO: solve assigning value returned from method call on some Object
-  if isAssign and isFunctionCall then
+  -- TODO: solve assigning value returned from method call on some Object
+  if assignModule.isAssignStatement(node) and isFunctionCall then
 
      variableName = findNameNode(node.data[1])
      isClass, variableClass = findClassNameNode(node.data[2], fullAst)
@@ -261,12 +263,12 @@ function subsequentMethodHelper(index, subsequentMethods, variableInstances, nod
         variableInstances[variableName] = variableClass
       else
         
---     lets investigate also calls within found method
+      -- lets investigate also calls within found method
         local cleanMethodName = string.gsub(variableClass, "@", "")
         local newIntroMethod = find(fullAst, actualClass, cleanMethodName)
---        local newIntroMethodExp = newIntroMethod.data[2]
+      --  local newIntroMethodExp = newIntroMethod.data[2]
         
---        TODO: variableInstances array must be cloned before nested call, due to scope issues
+      -- TODO: variableInstances array must be cloned before nested call, due to scope issues
         if (newIntroMethod) then
           local newIntroMethodExp = newIntroMethod.data[2]
           subsequentMethods[index] = {
