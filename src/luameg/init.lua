@@ -143,10 +143,85 @@ local function getGraphProject(dir)
 	return graphProject
 end
 
+-- @return unique id
+local function inc()
+	a_ = a_ or 0
+	a_ = a_ + 1
+	return a_
+end
+
+-- @name convertGraphToImportGraph
+-- @param graph - luaDB graph from luameg
+-- @return graph in import format for HyperLua Lua::LuaGraph. Graph is in format
+--   [{type,id,label,params}] = {[{type,id,label,direction}]={type,id,label,params}, [{type,id,label,direction}]={type,id,label,params}} 
+--   or simple: [edge]={[incidence]=[node],[incidence]=[node]}
+local function convertGraphToImportGraph(graph)
+	local newGraph = {}
+
+	local nodes = {}
+
+	if graph == nil or graph.nodes == nil then
+		return newGraph
+	end
+
+	-- nodes
+	for k, vNode in ipairs(graph.nodes) do
+		local origname = vNode.data.name or vNode.id
+
+		local newNode = {type="node", id=inc(), label=origname, params={name=origname}}
+
+		-- ak je to root node
+		if newNode.id == 1 then 
+			newNode.params.root = true 
+		end
+
+		-- doplni meta.type - typ uzla
+		if vNode.meta ~= nil and vNode.meta.type ~= nil then
+			newNode.params.type = vNode.meta.type
+		end
+
+		-- pre uzly file a directory sa zoberu ich cesty 
+		if vNode.meta ~= nil and (vNode.meta.type:lower() == "file" or vNode.meta.type:lower() == "directory") then
+			newNode.params.path = vNode.data.path
+		end
+
+		-- pre uzly method sa zoberie zoznam argumentov (parametrov)
+		if vNode.meta ~=nil and vNode.meta.type:lower() == "method" then
+			newNode.params.args = vNode.data.args
+		end
+
+		-- sem doplnit pre dalsie uzly podla potreby
+
+
+		-- ulozenie uzla do zoznamu
+		nodes[vNode] = newNode		
+	end
+
+	-- edges
+	for k, vEdge in ipairs(graph.edges) do
+		local edge = {type="edge", id=inc(), label=vEdge.label, params={origid=vEdge.id, type=vEdge.label}}
+
+		-- incidencie
+		local incid1 = {type="edge_part", id=inc(), label=''}
+		local incid2 = {type="edge_part", id=inc(), label=''}
+
+		-- nastavit orientaciu hrany
+		if vEdge.orientation:lower() == "oriented" then
+			incid1.direction = "in"
+			incid2.direction = "out"
+		end
+
+		-- ulozenie uzlov a incidencii do zoznamu s hranou
+		newGraph[edge] = {[incid1]=nodes[vEdge.from[1]], [incid2]=nodes[vEdge.to[1]]}
+	end
+
+	return newGraph
+end
 
 return {
 	processText = processText,
 	processFile = processFile,
 	getGraphProject = getGraphProject,
-	getClassGraph = getClassGraph
+	getClassGraph = getClassGraph,
+	convertGraphToImportGraph = convertGraphToImportGraph
 }
