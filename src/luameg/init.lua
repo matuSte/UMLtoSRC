@@ -67,7 +67,7 @@ end
 
 -- get class graph from ast (one file)
 -- @name getClassGraph
--- @param ast - ast from luameg (moonscript) from which is extracted new graph or inserted new nodes and edges to graph
+-- @param ast - moonscript ast from luameg from which is extracted new graph or inserted new nodes and edges to graph
 -- @param graph - optional. Graph which is filled.
 -- @return graph with class nodes, methods, properties and arguments.
 local function getClassGraph(ast, graph)
@@ -76,7 +76,9 @@ local function getClassGraph(ast, graph)
 	return extractorClass.getGraph(ast, graph)
 end
 
+
 -- TODO: doplnit sekvencny diagram
+-- @name getGraphProject
 -- @param dir - Directory with moonscript project
 -- @return Return complete graph of project
 local function getGraphProject(dir)
@@ -105,7 +107,7 @@ local function getGraphProject(dir)
 		if nodeFile.meta ~= nil and nodeFile.meta.type == "file" then
 
 			-- ak je subor s koncovkou .moon
-			if nodeFile.data.name:match("^.+(%..+)$") == ".moon" then
+			if nodeFile.data.name:lower():match("^.+(%..+)$"):lower() == ".moon" then
 
 				-- vytvorit AST z jedneho suboru a nasledne novy graf
 				local astFile = processFile(nodeFile.data.path)
@@ -117,9 +119,6 @@ local function getGraphProject(dir)
 				for j=1, #graphFileClass.nodes do
 					graphProject:addNode(graphFileClass.nodes[j])
 
-					if graphFileClass.nodes[j].meta == nil then
-						print(graphFileClass.nodes[j].data.name)
-					end
 					-- vytvori sa hrana "subor obsahuje triedu"
 					if graphFileClass.nodes[j].meta.type == "Class" then
 						local newEdge = hypergraph.edge.new()
@@ -143,6 +142,7 @@ local function getGraphProject(dir)
 
 	return graphProject
 end
+
 
 return {
 	processText = processText,

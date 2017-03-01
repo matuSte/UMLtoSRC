@@ -68,9 +68,9 @@ end
 -- @name getAllClasses
 -- @param ast - ast from luameg (moonscript)
 -- @return list of nodes of all classes from AST with all methods and properties
---    { ["ast"]=astNodeWithClass, ["name"]=astNode, ["extends"]=astNode, ["properties"]={astNode}, ["methods"]={["name"]=astNode, ["args"]={astNode} } }
+--    { ["astNode"]=astNodeWithClass, ["name"]=astNode, ["extends"]=astNode, ["properties"]={astNode}, ["methods"]={["astNode"]=classLine, ["name"]=astNode, ["args"]={astNode} } }
 local function getAllClasses(ast) 
-	local out = {["ast"]=nil, ["name"]=nil, ["extends"]=nil, ["properties"]=nil, ["methods"]=nil}
+	local out = {["astNode"]=nil, ["name"]=nil, ["extends"]=nil, ["properties"]=nil, ["methods"]=nil}
 
 	if ast == nil then
 		return out
@@ -94,7 +94,8 @@ local function getAllClasses(ast)
 		classNameTree = getChildNode(classDeclTree[i], "Name", "key")
 
 		-- v classLinesTree budu podstromy vsetkych metod a properties v danom bloku/podstromu ClassDecl
-		classLinesTree = getChildNode(classDeclTree[i], "KeyValue", "key")
+		-- classLinesTree = getChildNode(classDeclTree[i], "KeyValue", "key")
+		classLinesTree = getChildNode(classDeclTree[i], "ClassLine", "key")
 
 
 		-- ziskanie extends class
@@ -132,7 +133,7 @@ local function getAllClasses(ast)
 					local methodd = {}
 					methodd = getChildNode(classLinesTree[j], "KeyName", "key")
 					if #methodd > 0 then
-						table.insert(methods, {["name"] = methodd[1], ["args"] = methodsArgs})
+						table.insert(methods, {["name"] = methodd[1], ["astNode"] = classLinesTree[j], ["args"] = methodsArgs})
 
 						--if methodd[1]["text"] == "new" then
 						--	-- vsetky selfname na lavej strane od Assign v Statement, v konstruktore new()
@@ -174,7 +175,7 @@ local function getAllClasses(ast)
 			end
 			
 			
-			table.insert(out, {["ast"]=classDeclTree[i], ["name"]=classNameTree[1], ["extends"]=extendedClassTree[1], ["properties"]=props, ["methods"]=methods})
+			table.insert(out, {["astNode"]=classDeclTree[i], ["name"]=classNameTree[1], ["extends"]=extendedClassTree[1], ["properties"]=props, ["methods"]=methods})
 		end
 		
 	end
@@ -203,6 +204,7 @@ local function getGraph(ast, graph)
 			nodeClass.meta = nodeClass.meta or {}
 			nodeClass.meta.type = "Class"
 			nodeClass.data.name = className
+			nodeClass.data.astNodeId = classes[i]["astNode"]["nodeid"]
 
 			graph:addNode(nodeClass)
 		else
@@ -237,6 +239,7 @@ local function getGraph(ast, graph)
 			nodeMethod.meta = nodeMethod.meta or {}
 			nodeMethod.meta.type = "Method"
 			nodeMethod.data.name = classes[i]["methods"][j]["name"]["text"]
+			nodeMethod.data.astNodeId = classes[i]["methods"][j]["astNode"]["nodeid"]
 			
 			-- arguments as array in method node
 			local args = {}
