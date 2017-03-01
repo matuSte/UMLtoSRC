@@ -241,13 +241,22 @@ local function getGraph(ast, graph)
 			nodeMethod.data.name = classes[i]["methods"][j]["name"]["text"]
 			nodeMethod.data.astNodeId = classes[i]["methods"][j]["astNode"]["nodeid"]
 			
-			-- arguments as array in method node
-			local args = {}
+			-- arguments
 			for k=1, #classes[i]["methods"][j]["args"] do
-				table.insert(args, classes[i]["methods"][j]["args"][k]["text"])
-			end
-			nodeMethod.data.args = args
+				local nodeArg = luadb.node.new()
+				nodeArg.meta = nodeArg.meta or {}
+				nodeArg.meta.type = "Argument"
+				nodeArg.data.name = classes[i]["methods"][j]["args"][k]["text"]
 
+				local edgeArg = luadb.edge.new()
+				edgeArg.label = "Has"  -- or "is called with" ?
+				edgeArg:setAsOriented()
+				edgeArg:setSource(nodeMethod)
+				edgeArg:setTarget(nodeArg)
+
+				graph:addNode(nodeArg)
+				graph:addEdge(edgeArg)
+			end
 
 			local edge = luadb.edge.new()
 			edge.label = "Contains"
