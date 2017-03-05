@@ -2,10 +2,18 @@
 -- imports area starts
 
 local assignModule = require './assignMethodCall'
+local luadb = require 'luadb.hypergraph'
 
 -- imports area ends
+
+
+local function findMethod(className, methodName)
+
+end
+
+
 -- ........................................................
-function subsequentMethodHelper()
+local function subsequentMethodHelper()
 
   -- STEP 1: iterate through method node data, which contains all subsequent statements
 
@@ -16,7 +24,7 @@ end
 
 
 
-function getSubsequentMethods(ast, introMethodNode, className)
+local function getSubsequentMethods(ast, hypergraph)
 
   -- STEP 1: create method node for new data structure specific for sequence detector
   --         using method call module
@@ -26,9 +34,16 @@ function getSubsequentMethods(ast, introMethodNode, className)
   --         statement such as methods, cycles or conditionals; probably its needed to
   --         create method variable scope before calling recursion
 
+  local rootMethodNode = assignModule.constructMethodNode(introMethodNode)
+
+  -- NOTE: introMethodNode is general node in AST, so we need find body of this method
+  -- in the first place
+
 end
 
+
+
 return {
-  find = find,
   getSubsequentMethods = getSubsequentMethods
 }
+
