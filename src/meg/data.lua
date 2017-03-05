@@ -59,5 +59,5 @@ end
 
 return {
   Set = Set,
-  Stack = Stack,
+  Stack = Stack
 }

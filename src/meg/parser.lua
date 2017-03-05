@@ -312,7 +312,7 @@ local function check(input)
   return false            -- ak result obsahuje nieco ine (tabulka, retazec)
 end
 
--- vrati okrem true false aj dalsie informacie
+-- @return Vrati okrem true false aj dalsie informacie
 local function check_special(input)
   local builder = m.P(rules)
   local result = builder:match(input)

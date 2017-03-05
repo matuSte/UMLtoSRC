@@ -1,5 +1,4 @@
 # Mozno uzitocne linky
-
 MoonScript 0.5.0 - Language Guide  
 http://moonscript.org/reference/  
 
@@ -15,17 +14,11 @@ http://leafo.net/guides/parsing-expression-grammars.html
 Making a toy programming language in Lua, part 1  
 http://www.playwithlua.com?p=66  
 
+# Moonscript projekty
+http://leafo.net
 
-# Vhodne IDE na testovanie
-ZeroBrane Studio
+# AST Tree Syntax
+http://ironcreek.net/phpsyntaxtree/
 
-```bash
-wget https://download.zerobrane.com/ZeroBraneStudioEduPack-1.40-linux.sh
-sudo chmod 775 ZeroBraneStudioEduPack-1.40-linux.sh
-./ZeroBraneStudioEduPack-1.40-linux.sh
-zbstudio   
-```
-
-Edit -> Preferences -> Settings:System  dopisat:  
-*path.lua = "[absolutnaCestaDoHyperLua]/_install/bin/lua"*  
-
+# Plant UML
+www.plantuml.com/plantuml/uml
