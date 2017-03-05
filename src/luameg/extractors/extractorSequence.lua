@@ -1,7 +1,7 @@
 
 -- imports area starts
 
-local assignModule = require './assignMethodCall'
+-- local assignModule = require './extractorSequenceHelpers/assignMethodCall'
 local luadb = require 'luadb.hypergraph'
 
 -- imports area ends
@@ -34,11 +34,29 @@ local function getSubsequentMethods(ast, hypergraph)
   --         statement such as methods, cycles or conditionals; probably its needed to
   --         create method variable scope before calling recursion
 
-  local rootMethodNode = assignModule.constructMethodNode(introMethodNode)
+  -- local rootMethodNode = assignModule.constructMethodNode(introMethodNode)
 
   -- NOTE: introMethodNode is general node in AST, so we need find body of this method
   -- in the first place
 
+  local classes = hypergraph:findNodesByType('Class')
+
+  for key, class in pairs(classes) do
+    print(class.id, class.data.name, class.meta.type, class.data.astNodeId)
+
+    local classMethods = hypergraph:findEdgesBySource(class.id, 'Contains')
+    for key, classMethod in pairs(classMethods) do
+
+      -- print(key, classMethod.label, classMethod.to, classMethod.from)
+
+      local methodNode = classMethod.to[1]
+      print('\t', methodNode.id, methodNode.data.name, methodNode.meta.type, methodNode.data.astNodeId)
+    end
+
+  end
+
+
+  return hypergraph
 end
 
 
