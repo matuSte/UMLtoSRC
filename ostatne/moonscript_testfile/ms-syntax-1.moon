@@ -12,8 +12,8 @@ class TestFunctionCall
 	getNumber: () =>
 		return 7
 
-	getNumberWithArg: (num) =>
-		return num + 1
+	getNumberWithArg: (num, custom = 0) =>
+		return num + 1 + custom
 
 	assignWithFunctionCall: () =>
 		a = @getNumber!
@@ -39,8 +39,8 @@ class ObjectMethodCalls
 		c = testVar.getNumber()
 		@d = testVar/getNumber()
 
-		e = testVar.getNumberWithArg 6
-		@f = testVar/getNumberWithArg 6
+		e = testVar.getNumberWithArg 6, 1
+		@f = testVar/getNumberWithArg 6, 1
 
 		g = testVar.getNumberWithArg (16)
 		@h = testVar/getNumberWithArg (16)
