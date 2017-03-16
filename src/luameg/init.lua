@@ -143,9 +143,10 @@ local function getGraphProject(dir)
 	return graphProject
 end
 
--- @return unique id
+local a_ = 0
+
+-- @return (number) unique id
 local function inc()
-	a_ = a_ or 0
 	a_ = a_ + 1
 	return a_
 end
