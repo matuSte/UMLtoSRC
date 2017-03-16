@@ -51,7 +51,7 @@ end
 
 
 -- ........................................................
-local function subsequentMethodHelper(methodNode, hypergraph)
+local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassNode, graphSourceNode)
 
   -- STEP 1: iterate through method node data, which contains all subsequent statements
 
@@ -68,17 +68,67 @@ local function subsequentMethodHelper(methodNode, hypergraph)
     for key, statement in pairs(line.data) do
       if (statement.key == 'Statement') then
 
-        local methodCallNode
+        local methodCallNode, varName = ""
         if (assignModule.isAssignStatement(statement)) then
           methodCallNode = findMethodCall(statement.data[2])
+          variableAssignedTo = assignModule.getName(statement.data[1])
+          print("\tAssign Statement, variable name is: " .. variableAssignedTo)
+
+          if (methodCallNode ~= nil) then
+            local variableCalledFrom, methodName = assignModule.constructMethodNode(methodCallNode)
+            local callNodes = hypergraph:findNodeByName(methodName)
+
+            -- TODO: handle method names that are the same as class names
+            if (callNodes[1].meta.type == 'Class') and (variableCalledFrom == '') then
+              scope[variableAssignedTo] = methodName
+              print( "\tConstructor: " .. methodName)
+            elseif (callNodes[1].meta.type == 'Method') and (variableCalledFrom == '') then
+              local classMethods = hypergraph:findEdgesBySource(graphClassNode.id, 'Contains')
+
+              for key, method in pairs(classMethods) do
+                if (method.data.name == methodName) then
+                  local edge = luadb.edge.new()
+                  edge.label = "Executes"
+                  edge:setSource(graphSourceNode)
+                  edge:setTarget(method)
+                  edge:setAsOriented()
+                  hypergraph:addEdge(edge)
+                  break
+                end
+              end
+              print( "\tSelf method call: " .. methodName)
+            elseif (callNodes[1].meta.type == 'Method') and (variableCalledFrom ~= '') then
+              local variableType = scope[variableCalledFrom]
+              if (variableType) then
+                -- TODO: handle case when class name is not found
+                local classNode = hypergraph:findNodeByName(variableType)[1]
+                local classMethods = hypergraph:findEdgesBySource(classNode.id, 'Contains')
+
+                for key, method in pairs(classMethods) do
+                  if (method.data.name == methodName) then
+                    local edge = luadb.edge.new()
+                    edge.label = "Executes"
+                    edge:setSource(graphSourceNode)
+                    edge:setTarget(method)
+                    edge:setAsOriented()
+                    hypergraph:addEdge(edge)
+                    break
+                  end
+                end
+              end
+              print( "\t" .. "Var: " .. variableCalledFrom .. ", Method: " .. methodName)
+            end
+            
+          end
         else
           methodCallNode = findMethodCall(statement.data[1])
+          if (methodCallNode ~= nil) then
+            local variableName, methodName = assignModule.constructMethodNode(methodCallNode)
+            print( "\tVoid Call on method: " .. methodName)
+          end
         end
 
-        if (methodCallNode ~= nil) then
-          local variableName, methodName = assignModule.constructMethodNode(methodCallNode)
-          print( "\t\t" .. "Var: " ..variableName .. ", Method: " .. methodName)
-        end
+        
         
       end
     end
@@ -92,23 +142,10 @@ end
 
 local function getSubsequentMethods(ast, hypergraph)
 
-  -- STEP 1: create method node for new data structure specific for sequence detector
-  --         using method call module
-
-  -- STEP 2: call recursive method for discovering all important children of actual / 
-  --         desired method; this metode should always return an array of subsequent
-  --         statement such as methods, cycles or conditionals; probably its needed to
-  --         create method variable scope before calling recursion
-
-  -- local rootMethodNode = assignModule.constructMethodNode(introMethodNode)
-
-  -- NOTE: introMethodNode is general node in AST, so we need find body of this method
-  -- in the first place
-
   local classes = hypergraph:findNodesByType('Class')
 
   for key, class in pairs(classes) do
-    print(class.id, class.data.name, class.meta.type, class.data.astNodeId)
+    print("CLASS: ", class.data.name, class.meta.type, class.data.astNodeId)
 
     local classMethods = hypergraph:findEdgesBySource(class.id, 'Contains')
     for key, classMethod in pairs(classMethods) do
@@ -116,10 +153,11 @@ local function getSubsequentMethods(ast, hypergraph)
       -- print(key, classMethod.label, classMethod.to, classMethod.from)
       local methodNode = classMethod.to[1]
       if (methodNode.meta.type == 'Method') then
+        print("METHOD: ", methodNode.data.name, methodNode.meta.type, methodNode.data.astNodeId)
 
         local astMethodNode = findAstNode(ast, methodNode.data.astNodeId)
 
-        hypergraph = subsequentMethodHelper(astMethodNode, hypergraph)
+        hypergraph = subsequentMethodHelper(astMethodNode, hypergraph, {}, class, classMethod)
 
       end
       -- print('\t', methodNode.id, methodNode.data.name, methodNode.meta.type, methodNode.data.astNodeId)

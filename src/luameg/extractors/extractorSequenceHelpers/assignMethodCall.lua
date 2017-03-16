@@ -120,6 +120,7 @@ return {
 	
 	isAssignStatement = isAssignStatement,
 	isFunctionCall = isFunctionCall,
-	constructMethodNode = constructMethodNode
+	constructMethodNode = constructMethodNode,
+	getName = getName
 
 }

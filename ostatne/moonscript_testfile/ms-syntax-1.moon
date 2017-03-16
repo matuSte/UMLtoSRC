@@ -45,6 +45,15 @@ class ObjectMethodCalls
 		g = testVar.getNumberWithArg (16)
 		@h = testVar/getNumberWithArg (16)
 
+class ConditionsTest
+	ifMethod: () =>
+		a = 10
 
+		if a > 3
+			b = 4
+		elseif a > 7
+			b = 7
+		else
+			b = 17
 
 
