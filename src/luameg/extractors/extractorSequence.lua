@@ -49,6 +49,21 @@ local function findAstNode(ast, astNodeId)
   return node
 end
 
+local function insertEdgeIntoHypergraph (classMethods, methodName, hypergraph)
+  for key, method in pairs(classMethods) do
+    if (method.data.name == methodName) then
+      local edge = luadb.edge.new()
+      edge.label = "Executes"
+      edge:setSource(graphSourceNode)
+      edge:setTarget(method)
+      edge:setAsOriented()
+      hypergraph:addEdge(edge)
+      break
+    end
+  end
+
+  return hypergraph
+end
 
 -- ........................................................
 local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassNode, graphSourceNode)
@@ -68,7 +83,9 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
     for key, statement in pairs(line.data) do
       if (statement.key == 'Statement') then
 
-        local methodCallNode, varName = ""
+        local methodCallNode
+
+        -- test if line contains assign statement or not
         if (assignModule.isAssignStatement(statement)) then
           methodCallNode = findMethodCall(statement.data[2])
           variableAssignedTo = assignModule.getName(statement.data[1])
@@ -85,17 +102,8 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
             elseif (callNodes[1].meta.type == 'Method') and (variableCalledFrom == '') then
               local classMethods = hypergraph:findEdgesBySource(graphClassNode.id, 'Contains')
 
-              for key, method in pairs(classMethods) do
-                if (method.data.name == methodName) then
-                  local edge = luadb.edge.new()
-                  edge.label = "Executes"
-                  edge:setSource(graphSourceNode)
-                  edge:setTarget(method)
-                  edge:setAsOriented()
-                  hypergraph:addEdge(edge)
-                  break
-                end
-              end
+              hypergraph = insertEdgeIntoHypergraph(classMethods, methodName, hypergraph)
+
               print( "\tSelf method call: " .. methodName)
             elseif (callNodes[1].meta.type == 'Method') and (variableCalledFrom ~= '') then
               local variableType = scope[variableCalledFrom]
@@ -104,35 +112,49 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
                 local classNode = hypergraph:findNodeByName(variableType)[1]
                 local classMethods = hypergraph:findEdgesBySource(classNode.id, 'Contains')
 
-                for key, method in pairs(classMethods) do
-                  if (method.data.name == methodName) then
-                    local edge = luadb.edge.new()
-                    edge.label = "Executes"
-                    edge:setSource(graphSourceNode)
-                    edge:setTarget(method)
-                    edge:setAsOriented()
-                    hypergraph:addEdge(edge)
-                    break
-                  end
-                end
+                hypergraph = insertEdgeIntoHypergraph(classMethods, methodName, hypergraph)
               end
               print( "\t" .. "Var: " .. variableCalledFrom .. ", Method: " .. methodName)
             end
             
           end
+        -- not assign statement block
         else
           methodCallNode = findMethodCall(statement.data[1])
-          if (methodCallNode ~= nil) then
-            local variableName, methodName = assignModule.constructMethodNode(methodCallNode)
-            print( "\tVoid Call on method: " .. methodName)
-          end
-        end
 
-        
-        
+          if (methodCallNode ~= nil) then
+            local variableCalledFrom, methodName = assignModule.constructMethodNode(methodCallNode)
+            print( "\tVoid Call on method: " .. methodName)
+
+            local callNodes = hypergraph:findNodeByName(methodName)
+
+            if (assignModule.isSystemCall(methodName)) or (#callNodes == 0) then
+              print ("\tSystem call.")
+            elseif (callNodes[1].meta.type == 'Method') and (variableCalledFrom == '') then
+              local classMethods = hypergraph:findEdgesBySource(graphClassNode.id, 'Contains')
+
+              hypergraph = insertEdgeIntoHypergraph(classMethods, methodName, hypergraph)
+
+              print( "\tSelf method call: " .. methodName)
+            elseif (callNodes[1].meta.type == 'Method') and (variableCalledFrom ~= '') then
+              local variableType = scope[variableCalledFrom]
+              if (variableType) then
+                -- TODO: handle case when class name is not found
+                local classNode = hypergraph:findNodeByName(variableType)[1]
+                local classMethods = hypergraph:findEdgesBySource(classNode.id, 'Contains')
+
+                hypergraph = insertEdgeIntoHypergraph(classMethods, methodName, hypergraph)
+              end
+              print( "\t" .. "Var: " .. variableCalledFrom .. ", Method: " .. methodName)
+            end
+            
+          end
+
+          -- TODO: implement loop and condition detection
+
+        end
       end
     end
-
   end
 
   return hypergraph

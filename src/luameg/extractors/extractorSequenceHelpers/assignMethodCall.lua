@@ -24,6 +24,15 @@ local function binaryOperatorCall (node)
 	return (#node.data == 3) and (node.data[1].key == 'Value') and (node.data[2].key == 'BinaryOperator') and (node.data[3].key == 'Value')
 end
 
+local function isSystemCall (methodName)
+	local systemMethods = {
+		print = 0
+	}
+	local index = systemMethods[methodName] or -1
+
+	return (index ~= -1)
+end
+
 -- 
 local function isFunctionCall (node)
 
@@ -121,6 +130,7 @@ return {
 	isAssignStatement = isAssignStatement,
 	isFunctionCall = isFunctionCall,
 	constructMethodNode = constructMethodNode,
-	getName = getName
+	getName = getName,
+	isSystemCall = isSystemCall
 
 }
