@@ -186,7 +186,7 @@ local function convertGraphToImportGraph(graph)
 		-- doplni type uzla bud z meta.type, alebo z data.type
 		if vNode.meta ~= nil and vNode.meta.type ~= nil then
 			newNode.params.type = vNode.meta.type
-		else vNode.data.type ~= nil then
+		elseif vNode.data.type ~= nil then
 			newNode.params.type = vNode.data.type
 		end
 
