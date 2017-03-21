@@ -1,3 +1,8 @@
+-------------------------------------------------------
+-- Interface for luameg
+-- @release 2017/03/16 Matúš Štefánik, Tomáš Žigo
+-------------------------------------------------------
+
 local io, table, pairs, type, print, assert, tostring = io, table, pairs, type, print, assert, tostring
 
 local lpeg = require 'lpeg'
@@ -20,10 +25,8 @@ lpeg.setmaxstack(400)
 
 local capture_table = {}
 
-
--- zatial len obycajne skopirovanie
+-- postupne nabalovanie
 grammar.pipe(capture_table, AST_capt.captures)
-
 
 
 
@@ -45,8 +48,8 @@ end
 -- Main function for source code analysis
 -- returns an AST
 -- @name processText
--- @param code - string containing the source code to be analyzed
--- @return ast for moonscript
+-- @param code - [string] string containing the source code to be analyzed
+-- @return [table] ast for moonscript code
 local function processText(code)
 
 	local result = patt:match(code)[1]
@@ -54,9 +57,12 @@ local function processText(code)
 	return result
 end
 
+----------------------------------------------------
+-- Main function for source code analysis from file
+-- returns an AST
 -- @name proccessFile
--- @param filename - file with source code
--- @return ast for moonscript
+-- @param filename - [string] file with source code
+-- @return [table] ast for moonscript
 local function processFile(filename)
 	local file = assert(io.open(filename, "r"))
 	local code = file:read("*all")
@@ -65,19 +71,19 @@ local function processFile(filename)
 	return processText(code)
 end
 
-
--- get class graph from ast (one file)
+--------------------------------------
+-- Get class graph from ast (one file)
 -- @name getClassGraph
--- @param ast - moonscript ast from luameg from which is extracted new graph or inserted new nodes and edges to graph
--- @param graph - optional. Graph which is filled.
--- @return graph with class nodes, methods, properties and arguments.
+-- @param ast - [table] moonscript ast from luameg from which is extracted new graph or inserted new nodes and edges to graph
+-- @param graph - [table] optional. Graph which is filled.
+-- @return [table] graph with class nodes, methods, properties and arguments.
 local function getClassGraph(ast, graph)
 	local graph = graph or hypergraph.graph.new()
 
 	return extractorClass.getGraph(ast, graph)
 end
 
-
+--------------------------------------
 -- Adds subsequent method calls into already generated class graph. Based on this information
 -- we are able to construct UML sequence diagram.
 -- @name addSequenceGraphIntoClassGraph
@@ -90,11 +96,10 @@ local function addSequenceGraphIntoClassGraph(ast, graph)
 
 end
 
-
--- TODO: doplnit sekvencny diagram
+--------------------------------------
 -- @name getGraphProject
--- @param dir - Directory with moonscript project
--- @return Return complete graph of project
+-- @param dir - [string] Directory with moonscript project
+-- @return [table] Return complete graph of project
 local function getGraphProject(dir)
 
 	-- vytvori sa graf so subormi a zlozkami
@@ -157,11 +162,87 @@ local function getGraphProject(dir)
 	return graphProject
 end
 
+local a_ = 0
+
+--------------------------
+-- Generator for unique IDs
+-- @name inc
+-- @return [number] unique id
+local function inc()
+	a_ = a_ + 1
+	return a_
+end
+
+---------------------------------------
+-- @name convertGraphToImportGraph
+-- @param graph - [table] luaDB graph from luameg
+-- @return [table] graph in import format for HyperLua Lua::LuaGraph. Graph is in format
+--   [{type,id,label,params}] = {[{type,id,label,direction}]={type,id,label,params}, [{type,id,label,direction}]={type,id,label,params}} 
+--   or simple: [edge]={[incidence]=[node],[incidence]=[node]}
+local function convertGraphToImportGraph(graph)
+	local newGraph = {}
+
+	local nodes = {}
+
+	if graph == nil or graph.nodes == nil then
+		return newGraph
+	end
+
+	-- nodes
+	for k, vNode in ipairs(graph.nodes) do
+		local newNode = {type="node", id=inc(), label=vNode.data.name, params={origid=vNode.id, name=vNode.data.name}}
+
+		-- ak je to root node
+		if newNode.id == 1 then 
+			newNode.params.root = true 
+		end
+
+		-- doplni type uzla bud z meta.type, alebo z data.type
+		if vNode.meta ~= nil and vNode.meta.type ~= nil then
+			newNode.params.type = vNode.meta.type
+		elseif vNode.data.type ~= nil then
+			newNode.params.type = vNode.data.type
+		end
+
+		-- pre uzly file a directory sa zoberu ich cesty 
+		if vNode.meta ~= nil and (vNode.meta.type:lower() == "file" or vNode.meta.type:lower() == "directory") then
+			newNode.params.path = vNode.data.path
+		end
+
+
+		-- sem doplnit pre dalsie uzly podla potreby
+
+
+		-- ulozenie uzla do zoznamu
+		nodes[vNode] = newNode		
+	end
+
+	-- edges
+	for k, vEdge in ipairs(graph.edges) do
+		local edge = {type="edge", id=inc(), label=vEdge.label, params={origid=vEdge.id, type=vEdge.label}}
+
+		-- incidencie
+		local incid1 = {type="edge_part", id=inc(), label=''}
+		local incid2 = {type="edge_part", id=inc(), label=''}
+
+		-- nastavit orientaciu hrany
+		if vEdge.orientation:lower() == "oriented" then
+			incid1.direction = "in"
+			incid2.direction = "out"
+		end
+
+		-- ulozenie uzlov a incidencii do zoznamu s hranou
+		newGraph[edge] = {[incid1]=nodes[vEdge.from[1]], [incid2]=nodes[vEdge.to[1]]}
+	end
+
+	return newGraph
+end
 
 return {
 	addSequenceGraphIntoClassGraph = addSequenceGraphIntoClassGraph,
 	processText = processText,
 	processFile = processFile,
 	getGraphProject = getGraphProject,
-	getClassGraph = getClassGraph
+	getClassGraph = getClassGraph,
+	convertGraphToImportGraph = convertGraphToImportGraph
 }
