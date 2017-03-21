@@ -55,7 +55,22 @@ local function isFunctionCall (node)
 			return hasArguments or withoutArguments or objectMethodWithArguments 
 		end
 	end
+end
 
+-- 
+local function findMethodCall(statement)
+  local methodCall = nil
+
+  for i, node in pairs(statement.data) do
+    if (isFunctionCall(node)) then
+      methodCall = node
+      break
+    else
+      methodCall = findMethodCall(node)
+    end
+  end
+
+  return methodCall
 end
 
 -- 
@@ -126,11 +141,10 @@ end
 
 
 return {
-	
 	isAssignStatement = isAssignStatement,
 	isFunctionCall = isFunctionCall,
+	findMethodCall = findMethodCall,
 	constructMethodNode = constructMethodNode,
 	getName = getName,
 	isSystemCall = isSystemCall
-
 }

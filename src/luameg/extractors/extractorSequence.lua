@@ -29,36 +29,6 @@ local function findMethodBody(methodNode)
   return methodBody
 end
 
-local function findConditionNode(statement)
-  local conditionNode = nil
-
-  for i, node in pairs(statement.data) do
-    if (conditionModule.isConditionBlock(node)) then
-      conditionNode = node
-      break
-    else
-      conditionNode = findConditionNode(node)
-    end
-  end
-
-  return conditionNode
-end
-
-local function findMethodCall(statement)
-  local methodCall = nil
-
-  for i, node in pairs(statement.data) do
-    if (assignModule.isFunctionCall(node)) then
-      methodCall = node
-      break
-    else
-      methodCall = findMethodCall(node)
-    end
-  end
-
-  return methodCall
-end
-
 local function findAstNode(ast, astNodeId)
   local node = ast['nodeid_references'][astNodeId]
   return node
@@ -93,29 +63,6 @@ local function copyScope(scope)
   return newScope
 end
 
-local function setupConditionBranch(nodeName, nodeAstId, graphSource, hypergraph)
-  -- create first condition branch node
-  local newCondBranch = luadb.node.new()
-  newCondBranch.meta = newCondBranch.meta or {}
-  newCondBranch.meta.type = "ConditionBranch"
-  newCondBranch.data.name = nodeName
-  newCondBranch.data.astNodeId = nodeAstId
-
-  hypergraph:addNode(newCondBranch)
-
-  -- create also edge to connect these two nodes
-  local branchEdge = luadb.edge.new()
-  branchEdge.label = "HasBranch"
-  branchEdge:setSource(graphSource)
-  branchEdge:setTarget(newCondBranch)
-  branchEdge:setAsOriented()
-
-  hypergraph:addEdge(branchEdge)
-  -- end
-
-  return hypergraph, newCondBranch
-end
-
 -- ........................................................
 local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassNode, graphSourceNode)
 
@@ -138,7 +85,7 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
 
         -- test if line contains assign statement or not
         if (assignModule.isAssignStatement(statement)) then
-          methodCallNode = findMethodCall(statement.data[2])
+          methodCallNode = assignModule.findMethodCall(statement.data[2])
           variableAssignedTo = assignModule.getName(statement.data[1])
           print("\tAssign Statement, variable name is: " .. variableAssignedTo)
 
@@ -171,7 +118,7 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
           end
         -- not assign statement block
         else
-          methodCallNode = findMethodCall(statement.data[1])
+          methodCallNode = assignModule.findMethodCall(statement.data[1])
 
           if (methodCallNode ~= nil) then
             local variableCalledFrom, methodName = assignModule.constructMethodNode(methodCallNode)
@@ -200,32 +147,19 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
             end
             
           else
-            local conditionNode = findConditionNode(statement.data[1])
+            local conditionNode = conditionModule.findConditionNode(statement.data[1])
 
             if (conditionNode ~= nil) then
 
-              -- create new luadb node, setup with proper values and insert into hypergraph
-              local newCondNode = luadb.node.new()
-              newCondNode.meta = newCondNode.meta or {}
-              newCondNode.meta.type = "Condition"
-              newCondNode.data.name = "Condition"
-              newCondNode.data.astNodeId = conditionNode.nodeid
-
-              hypergraph:addNode(newCondNode)
-              -- condition node creation end
-
-              -- create new edge to connect method with created condition node
-              local edge = luadb.edge.new()
-              edge.label = "Executes"
-              edge:setSource(graphSourceNode)
-              edge:setTarget(newCondNode)
-              edge:setAsOriented()
-
-              hypergraph:addEdge(edge)
-              -- edge between method and conditon node creation end
+              local newCondNode
+              hypergraph, newCondNode = conditionModule.insertCentralConditionNodeWithEdge(
+                hypergraph, 
+                conditionNode, 
+                graphSourceNode
+              )
 
               local newCondBranch
-              hypergraph, newCondBranch = setupConditionBranch(
+              hypergraph, newCondBranch = conditionModule.setupConditionBranch(
                 conditionNode.data[2].text, 
                 conditionNode.data[3].nodeid, 
                 newCondNode, 
@@ -247,7 +181,7 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
                 if (conditionBranch.key == "IfElseIf") then
 
                   local newCondBranch
-                  hypergraph, newCondBranch = setupConditionBranch(
+                  hypergraph, newCondBranch = conditionModule.setupConditionBranch(
                     conditionBranch.data[3].text, 
                     conditionBranch.data[4].nodeid, 
                     graphSourceNode, 
@@ -266,7 +200,7 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
                 elseif (conditionBranch.key == "IfElse") then
 
                   local newCondBranch
-                  hypergraph, newCondBranch = setupConditionBranch(
+                  hypergraph, newCondBranch = conditionModule.setupConditionBranch(
                     "default", 
                     conditionBranch.data[3].nodeid, 
                     graphSourceNode, 
@@ -288,11 +222,55 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
 
             else
 
+              local loopNode = loopModule.findLoopNode(statement)
+
+              if (loopNode ~= nil) then
+
+                local newLoopNode
+                hypergraph, newLoopNode = loopModule.insertCentralLoopNodeWithEdge(
+                  hypergraph, 
+                  loopNode, 
+                  graphSourceNode
+                )
+
+                -- let's create loop header text
+                local loopConditionText
+                local loopBodyNode
+
+                if (loopNode.data[1].key == "WHILE") then
+                  local loopKeyWord = loopNode.data[1].text
+                  local loopCondition = loopNode.data[2].text
+                  loopConditionText = loopKeyWord .. loopCondition
+                  loopBodyNode = loopNode.data[3]
+
+                  print("\tLoop construction WHILE: " .. loopConditionText)
+                elseif (loopNode.data[1].key == "FOR") then
+                  loopConditionText = loopModule.constructForLoopText(loopNode)
+                  loopBodyNode = loopNode.data[#loopNode.data]
+
+                  print("\tLoop construction FOR: " .. loopConditionText)
+                end
+                
+                hypergraph = loopModule.insertHeaderNodeWithEdge(
+                  hypergraph, 
+                  loopConditionText, 
+                  newLoopNode
+                )
+
+                -- recursive search for subsequent method calls inside loop body
+                local newScope = copyScope(scope)
+
+                hypergraph = subsequentMethodHelper(
+                  loopBodyNode, 
+                  hypergraph, 
+                  newScope, 
+                  graphClassNode, 
+                  newLoopNode
+                )
+                -- end
+              end
             end
           end
-
-          -- TODO: implement loop and condition detection
-
         end
       end
     end

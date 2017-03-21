@@ -56,4 +56,17 @@ class ConditionsTest
 		else
 			b = 17
 
+class LoopsTest
+	forCycle: () =>
+		k = 11
+		a = 0
+
+		for i = 0, k
+			a = a + 1
+
+		while k > 0
+			print k
+			k = k - 1
+
+
 
