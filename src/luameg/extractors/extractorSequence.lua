@@ -35,12 +35,13 @@ local function findAstNode(ast, astNodeId)
 end
 
 local function insertEdgeIntoHypergraph (graphSourceNode, classMethods, methodName, hypergraph)
-  for key, method in pairs(classMethods) do
-    if (method.data.name == methodName) then
+  for key, methodEdge in pairs(classMethods) do
+    local methodNode = methodEdge.to[1]
+    if (methodNode.data.name == methodName) then
       local edge = luadb.edge.new()
       edge.label = "Executes"
       edge:setSource(graphSourceNode)
-      edge:setTarget(method.to[1])
+      edge:setTarget(methodNode)
       edge:setAsOriented()
       hypergraph:addEdge(edge)
       break
