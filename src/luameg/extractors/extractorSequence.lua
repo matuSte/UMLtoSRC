@@ -185,7 +185,7 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
                   hypergraph, newCondBranch = conditionModule.setupConditionBranch(
                     conditionBranch.data[3].text, 
                     conditionBranch.data[4].nodeid, 
-                    graphSourceNode, 
+                    newCondNode, 
                     hypergraph
                   )
 
@@ -204,7 +204,7 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
                   hypergraph, newCondBranch = conditionModule.setupConditionBranch(
                     "default", 
                     conditionBranch.data[3].nodeid, 
-                    graphSourceNode, 
+                    newCondNode, 
                     hypergraph
                   )
 
