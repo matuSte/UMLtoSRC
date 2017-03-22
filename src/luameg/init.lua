@@ -134,6 +134,8 @@ local function getGraphProject(dir)
 				-- ziska sa graf s triedami pre jeden subor
 				local graphFileClass = getClassGraph(astFile)
 
+				graphFileClass = addSequenceGraphIntoClassGraph(astFile, graphFileClass)
+
 				-- priradi z grafu jednotlive uzly a hrany do kompletneho vysledneho grafu
 				for j=1, #graphFileClass.nodes do
 					graphProject:addNode(graphFileClass.nodes[j])

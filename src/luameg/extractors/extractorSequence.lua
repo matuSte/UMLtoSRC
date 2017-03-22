@@ -40,7 +40,7 @@ local function insertEdgeIntoHypergraph (graphSourceNode, classMethods, methodNa
       local edge = luadb.edge.new()
       edge.label = "Executes"
       edge:setSource(graphSourceNode)
-      edge:setTarget(method)
+      edge:setTarget(method.to[1])
       edge:setAsOriented()
       hypergraph:addEdge(edge)
       break
@@ -298,7 +298,7 @@ local function getSubsequentMethods(ast, hypergraph)
 
         local astMethodNode = findAstNode(ast, methodNode.data.astNodeId)
 
-        hypergraph = subsequentMethodHelper(astMethodNode, hypergraph, {}, class, classMethod)
+        hypergraph = subsequentMethodHelper(astMethodNode, hypergraph, {}, class, methodNode)
 
       end
       -- print('\t', methodNode.id, methodNode.data.name, methodNode.meta.type, methodNode.data.astNodeId)
