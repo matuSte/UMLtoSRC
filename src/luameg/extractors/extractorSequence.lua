@@ -44,6 +44,9 @@ local function insertEdgeIntoHypergraph (graphSourceNode, classMethods, methodNa
       edge:setTarget(methodNode)
       edge:setAsOriented()
       hypergraph:addEdge(edge)
+
+      print(edge.label, edge.from[1].data.name, edge.to[1].data.name)
+
       break
     end
   end
@@ -109,11 +112,12 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
               if (variableType) then
                 -- TODO: handle case when class name is not found
                 local classNode = hypergraph:findNodeByName(variableType)[1]
-                local classMethods = hypergraph:findEdgesBySource(classNode.id, 'Contains')
 
-                hypergraph = insertEdgeIntoHypergraph(classNode, classMethods, methodName, hypergraph)
+                local classMethods = hypergraph:findEdgesBySource(classNode.id, 'Contains')
+                print("ASSIGN FROM OBJECT: " .. classNode.id .. ", " .. classNode.data.name .. ", " .. #classMethods)
+                hypergraph = insertEdgeIntoHypergraph(graphSourceNode, classMethods, methodName, hypergraph)
               end
-              print( "\t" .. "Var: " .. variableCalledFrom .. ", Method: " .. methodName)
+              print( "\t" .. "Var: " .. variableCalledFrom .. " of type: " .. variableType .. ", Method: " .. methodName)
             end
             
           end
@@ -142,7 +146,7 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
                 local classNode = hypergraph:findNodeByName(variableType)[1]
                 local classMethods = hypergraph:findEdgesBySource(classNode.id, 'Contains')
 
-                hypergraph = insertEdgeIntoHypergraph(classNode, classMethods, methodName, hypergraph)
+                hypergraph = insertEdgeIntoHypergraph(graphSourceNode, classMethods, methodName, hypergraph)
               end
               print( "\t" .. "Var: " .. variableCalledFrom .. ", Method: " .. methodName)
             end
