@@ -82,11 +82,29 @@ local function getClassGraph(ast, graph)
 	return extractorClass.getGraph(ast, graph)
 end
 
+-------------------------------
+-- Get graph from one file
+-- @name getGraphFile
+-- @param path - [string] path to file
+-- @return [table] graph with class graph and sequence graph and [table] AST for this file
+local function getGraphFile(path)
+	assert(path ~= nil, "Path is nil")
+	local ast = processFile(path)
+	assert(ast ~= nil, "Ast for file is nil. Does file exist?")
+	local graph = getClassGraph(ast)
+
+	-- doplnenie graph o sekvencny graf
+	-- graph = addSequenceGraphIntoClassGraph(ast, graph)
+
+	return graph, ast
+end
+
 --------------------------------------
 -- @name getGraphProject
 -- @param dir - [string] Directory with moonscript project
 -- @return [table] Return complete graph of project
 local function getGraphProject(dir)
+	assert(dir ~= nil, "Directory path is nil")
 
 	-- vytvori sa graf so subormi a zlozkami
 	local graphProject = filestree.extract(dir)
@@ -160,6 +178,7 @@ local function inc()
 end
 
 ---------------------------------------
+-- Convert luadb graph to special import graph for HyperLua Lua::LuaGraph
 -- @name convertGraphToImportGraph
 -- @param graph - [table] luaDB graph from luameg
 -- @return [table] graph in import format for HyperLua Lua::LuaGraph. Graph is in format
@@ -170,6 +189,8 @@ local function convertGraphToImportGraph(graph)
 
 	local nodes = {}
 
+	assert(graph ~= nil, "Input graph is nil.")
+	assert(graph.nodes ~= nil, "Input graph does not contain key 'nodes'. Is it luadb graph?")
 	if graph == nil or graph.nodes == nil then
 		return newGraph
 	end
@@ -196,13 +217,14 @@ local function convertGraphToImportGraph(graph)
 		end
 
 
-		-- sem doplnit pre dalsie uzly podla potreby
+		-- sem doplnit dalsie parametre pre dalsie uzly podla potreby
 
 
 		-- ulozenie uzla do zoznamu
 		nodes[vNode] = newNode		
 	end
 
+	assert(graph.edges ~= nil, "Input graph does not contain key 'edges'. Is it luadb graph?")
 	-- edges
 	for k, vEdge in ipairs(graph.edges) do
 		local edge = {type="edge", id=inc(), label=vEdge.label, params={origid=vEdge.id, type=vEdge.label}}
@@ -224,10 +246,71 @@ local function convertGraphToImportGraph(graph)
 	return newGraph
 end
 
+--------------
+-- TODO: lepsie otestovat, mozu byt vacsie nedostatky, chybaju niektore polozky !
+-- @name convertHypergraphToImportGraph
+-- @param graph - [table] graph from hyperluametrics
+-- @return [table] graph in import format for HyperLua Lua::LuaGraph. Graph is in format
+--   [{type,id,label,params}] = {[{type,id,label,direction}]={type,id,label,params}, [{type,id,label,direction}]={type,id,label,params}} 
+--   or simple: [edge]={[incidence]=[node],[incidence]=[node]}
+local function convertHypergraphToImportGraph(graph)
+	local newGraph = {}
+
+	assert(graph ~= nil, "Input graph is nil.")
+	assert(graph.Nodes ~= nil, "Input graph does not contain key Nodes. Is it 'hypergraph' graph?")
+	local hNodes = graph.Nodes
+	assert(graph.Edges ~= nil, "Input graph does not contain key Edges. Is it 'hypergraph' graph?")
+	local hEdges = graph.Edges
+
+	for kEdge, vTableInc in pairs(hEdges) do
+
+		if kEdge ~= nil or vTableInc ~= nil then
+			local newEdge = {type="edge", id=inc(), label=kEdge.label, params={origid=kEdge.id, type=kEdge.label}}
+
+			-- pravdepodobne vzdy 2 prvky obsahuje vTableInc (aj 1 prvok byva)
+			local incids = {}
+			local nodes = {}
+
+			if vTableInc ~= nil then
+				isOk = true
+				for kInc, vNode in pairs(vTableInc) do
+					if kInc ~= nil or vNode ~= nil then
+
+						local newIncid = {type="edge_part", id=inc(), label=kInc.label, origid=kInc.id}
+						table.insert(incids, newIncid)
+
+						local newNode = {type="node", id=inc(), label=vNode.label, params={origid=vNode.id, name=vNode.label}}
+						table.insert(nodes, newNode)
+					else
+						isOk = false
+						--print("03 table.insert " .. kEdge.id)
+					end
+				end
+
+				if isOk == true and (incids[2] ~= nil and nodes[2] ~= nil) then
+					newGraph[newEdge] = {[incids[1]]=nodes[1], [incids[2]]=nodes[2]}
+				else
+					newGraph[newEdge] = {[incids[1]]=nodes[1]}
+					--print("02 incids, nodes " .. kEdge.id .. ", " .. #incids .. ", " .. #nodes)
+				end
+			else
+				--print("04 vTableInc is nil " .. kEdge.id)
+			end
+		else
+			--print("01 " .. kEdge.id)
+		end
+
+	end
+
+	return newGraph
+end
+
 return {
 	processText = processText,
 	processFile = processFile,
 	getGraphProject = getGraphProject,
+	getGraphFile = getGraphFile,
 	getClassGraph = getClassGraph,
-	convertGraphToImportGraph = convertGraphToImportGraph
+	convertGraphToImportGraph = convertGraphToImportGraph,
+	convertHypergraphToImportGraph = convertHypergraphToImportGraph
 }
