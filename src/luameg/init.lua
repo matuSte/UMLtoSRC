@@ -47,8 +47,8 @@ end
 ------------------------------------------------------------------------
 -- Main function for source code analysis
 -- returns an AST
--- @author Matus Stefanik
 -- @name processText
+-- @author Matus Stefanik
 -- @param code - [string] string containing the source code to be analyzed
 -- @return [table] ast for moonscript code
 local function processText(code)
@@ -61,8 +61,8 @@ end
 ----------------------------------------------------
 -- Main function for source code analysis from file
 -- returns an AST
--- @author Matus Stefanik
 -- @name proccessFile
+-- @author Matus Stefanik
 -- @param filename - [string] file with source code
 -- @return [table] ast for moonscript
 local function processFile(filename)
@@ -75,8 +75,8 @@ end
 
 --------------------------------------
 -- Get class graph from ast (one file)
--- @atuhor Matus Stefanik
 -- @name getClassGraph
+-- @author Matus Stefanik
 -- @param ast - [table] moonscript ast from luameg from which is extracted new graph or inserted new nodes and edges to graph
 -- @param graph - [table] optional. Graph which is filled.
 -- @return [table] graph with class nodes, methods, properties and arguments.
@@ -88,8 +88,8 @@ end
 
 -------------------------------
 -- Get graph from one file
--- @author Matus Stefanik
 -- @name getGraphFile
+-- @author Matus Stefanik
 -- @param path - [string] path to file
 -- @return [table] graph with class graph and sequence graph and [table] AST for this file
 local function getGraphFile(path)
@@ -105,8 +105,8 @@ local function getGraphFile(path)
 end
 
 --------------------------------------
--- @author Matus Stefanik
 -- @name getGraphProject
+-- @author Matus Stefanik
 -- @param dir - [string] Directory with moonscript project
 -- @return [table] Return complete graph of project
 local function getGraphProject(dir)

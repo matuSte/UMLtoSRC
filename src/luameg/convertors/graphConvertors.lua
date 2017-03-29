@@ -8,8 +8,8 @@ local id_ = 0
 
 --------------------------
 -- Generator for unique IDs
--- @author Matus Stefanik
 -- @name inc
+-- @author Matus Stefanik
 -- @return [number] unique id
 local function inc()
 	id_ = id_ + 1
@@ -18,8 +18,8 @@ end
 
 ---------------------------------------
 -- Convert luadb graph to special import graph for HyperLua Lua::LuaGraph
--- @author Matus Stefanik
 -- @name convertGraphToImportGraph
+-- @author Matus Stefanik
 -- @param graph - [table] luaDB graph from luameg
 -- @return [table] graph in import format for HyperLua Lua::LuaGraph. Graph is in format
 --   [{type,id,label,params}] = {[{type,id,label,direction}]={type,id,label,params}, [{type,id,label,direction}]={type,id,label,params}} 
@@ -93,8 +93,8 @@ end
 --       skusane na grafe z ast.hypergraph
 --
 -- Convert hypergraph from module 'hypergraph' to special import graph needed for Lua::LuaGraph.loadGraph()
--- @author Matus Stefanik
 -- @name convertHypergraphToImportGraph
+-- @author Matus Stefanik
 -- @param graph - [table] graph from module 'hypergraph'
 -- @return [table] graph in import format for HyperLua Lua::LuaGraph. Graph is in format
 --   [{type,id,label,params}] = {[{type,id,label,direction}]={type,id,label,params}, [{type,id,label,direction}]={type,id,label,params}} 
