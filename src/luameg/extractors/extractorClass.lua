@@ -1,13 +1,20 @@
+-----------------
+-- Submodule for extracting class graph from AST
+-- @release 29.03.2017 Matúš Štefánik
+-----------------
 
 local luadb = require 'luadb.hypergraph'
 
+---------------------
 -- Vrati zoznam podstromov, pre ktore boli splnene neededValue a inKey.
 -- @name getChildNode
--- @param ast - ast from luameg (moonscript)
--- @param inKey - which key in table must have value 'neededValue'
--- @param neededValue - required value from table
--- @param maxDepth - max depth to search for neededValue
--- @param dataOut - returned data. Contains all subtrees/subtables containing required value in key. Using for recursion.
+-- @author Matus Stefanik
+-- @param ast - [table] ast from luameg (moonscript)
+-- @param neededValue - [string] required value from table
+-- @param inKey - [string] which key in table must have value 'neededValue'
+-- @param maxDepth - [numeric] max depth to search for neededValue
+-- @param dataOut - [table] returned data. Contains all subtrees/subtables containing required value in key. Using for recursion.
+-- @return [table] dataOut
 local function getChildNode(ast, neededValue, inKey, maxDepth, dataOut)
 	local dataOut = dataOut or {}
 	local maxDepth = maxDepth or nil
@@ -35,11 +42,13 @@ local function getChildNode(ast, neededValue, inKey, maxDepth, dataOut)
 	return dataOut
 end
 
+---------------------------
 -- @name isValueInTree
--- @param ast - AST from luameg (moonscript)
--- @param key - which key in table must have value 'value'
--- @param value - required value from key
--- @return true or false, and count of matches
+-- @author Matus Stefanik
+-- @param ast - [table] AST from luameg (moonscript)
+-- @param key - [string] which key in table must have value 'value'
+-- @param value - [string] required value from key
+-- @return [boolean][number] true or false, and count of matches
 local function isValueInTree(ast, key, value)
 	local outResult = false
 	local outCount = 0
@@ -65,9 +74,11 @@ local function isValueInTree(ast, key, value)
 	return outResult, outCount
 end
 
+---------------------
 -- @name getAllClasses
--- @param ast - ast from luameg (moonscript)
--- @return list of nodes of all classes from AST with all methods and properties
+-- @author Matus Stefanik
+-- @param ast - [table] ast from luameg (moonscript)
+-- @return [table] list of nodes of all classes from AST with all methods and properties
 --    { ["astNode"]=astNodeWithClass, ["name"]=astNode, ["extends"]=astNode, ["properties"]={astNode}, ["methods"]={["astNode"]=classLine, ["name"]=astNode, ["args"]={astNode} } }
 local function getAllClasses(ast) 
 	local out = {["astNode"]=nil, ["name"]=nil, ["extends"]=nil, ["properties"]=nil, ["methods"]=nil}
@@ -183,11 +194,13 @@ local function getAllClasses(ast)
 	return out
 end
 
-
+--------------------
 -- Return all nodes and edges as graph from this AST
--- @param ast - ast from luameg (moonscript)
--- @param graph - optional. New nodes and edges insert to this graph.
--- @return graph (created with LuaDB) with nodes and edges needed for class diagram from ast
+-- @name getGraph
+-- @author Matus Stefanik
+-- @param ast - [table] ast from luameg (moonscript)
+-- @param graph - [table] optional. New nodes and edges insert to this graph.
+-- @return [table] graph (created with LuaDB) with nodes and edges needed for class diagram from ast
 local function getGraph(ast, graph)
 	local graph = graph or luadb.graph.new()
 

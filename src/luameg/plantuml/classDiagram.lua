@@ -1,24 +1,27 @@
+--------------------------------
+-- Submodule for generating plantuml template for uml class diagram and svg.
+-- @release 29.03.2017 Matúš Štefánik
+--------------------------------
+
 local pairs = pairs
 
-
--- TODO: effective append
-local function appendText(text, newText)
-	return text .. newText
-end
-
-
---[[
-Ukazka vystupnej tabulky dataOut:
-	data["Observer"]["extends"]
-	data["Observer"]["properties"][i]
-	data["Observer"]["methods"][i]["name"]
-	data["Observer"]["methods"][i]["args"][i]
-
-@param graph - luaDB graph with class graph
-@param nodeName - name of node for search
-@param dataOut - optional. Using in recursion. dataOut is returned.
-@return table with all collected info for class diagram from this nodeName
-]]--
+---------------------------------------
+-- Pomocna funkcia na extrahovanie potrebnych 
+-- hodnot ako nazov triedy, metody, clenske premenne, 
+-- nazov rodica apod z uzlu typu trieda
+--
+-- Ukazka vystupnej tabulky dataOut:
+--	data["Observer"]["extends"]
+--	data["Observer"]["properties"][i]
+--	data["Observer"]["methods"][i]["name"]
+--	data["Observer"]["methods"][i]["args"][i]
+--
+-- @name getTableFromCLassNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeName - [string] name of node for search
+-- @param dataOut - [table] optional. Using in recursion. dataOut is returned.
+-- @return [table] table with all collected info for class diagram from this nodeName
 local function getTableFromClassNode(graph, nodeName, dataOut)
 	local dataOut = dataOut or {}
 
@@ -59,12 +62,15 @@ local function getTableFromClassNode(graph, nodeName, dataOut)
 	return dataOut
 end
 
+-------------------------------------
 -- FIX: problem ak je subor s rovnakym nazvom v roznych adresaroch
 --
--- @param graph - luaDB graph with class graph
--- @param nodeName - name of node for search
--- @param dataOut - optional. Using in recursion. dataOut is returned.
--- @return table with all collected info for class diagram from this nodeName
+-- @name getTableFromFileNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeName - [string] name of node for search
+-- @param dataOut - [table] optional. Using in recursion. dataOut is returned.
+-- @return [table] table with all collected info for class diagram from this nodeName
 local function getTableFromFileNode(graph, nodeName, outData)
 	local outData = outData or {}
 
@@ -89,12 +95,14 @@ local function getTableFromFileNode(graph, nodeName, outData)
 	return outData
 end
 
+-----------------------------
 -- FIX: problem ak je adresar s rovnakym nazvom v roznych adresaroch
---
--- @param graph - luaDB graph with class graph
--- @param nodeName - name of node for search
--- @param dataOut - optional. Using in recusive. dataOut is returned.
--- @return table with all collected info for class diagram from this nodeName
+-- @name getTableFromDirectoryNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeName - [string] name of node for search
+-- @param dataOut - [table] optional. Using in recusive. dataOut is returned.
+-- @return [table] table with all collected info for class diagram from this nodeName
 local function getTableFromDirectoryNode(graph, nodeName, outData)
 	local outData = outData or {}
 
@@ -121,10 +129,13 @@ local function getTableFromDirectoryNode(graph, nodeName, outData)
 	return outData
 end
 
--- @param graph - luaDB graph with class graph
--- @param nodeName - name of node for search
--- @param dataOut - optional. Using in recursion. dataOut is returned.
--- @return table with all collected info for class diagram from this nodeName
+--------------------------
+-- @name getTableFromProjectNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeName - [string] name of node for search
+-- @param dataOut - [table] optional. Using in recursion. dataOut is returned.
+-- @return [table] table with all collected info for class diagram from this nodeName
 local function getTableFromProjectNode(graph, nodeName, outData)
 	local outData = outData or {}
 
@@ -153,29 +164,13 @@ end
 
 
 
----------------------------------
--- main functions to get image from node various type (class node, file node, directory node and project node)
----------------------------------
---
---
-
-
-
---[[
-plantuml template:
-
-	@startuml
-	class [name] {
-		+[property]
-		+[method]([args])
-	}
-	[extends] <|-- [name]
-	@enduml
-
-]]
--- @param graph - luaDB graph with class graph
--- @param nodeName - name of node from which is needed image with class diagram
--- @return Text with uml class diagram for plantUML
+--------------------
+-- Main functions to get plantuml template from node various type (class node, file node, directory node and project node)
+-- @name getPlantUmlFromNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeName - [string] name of node from which is needed image with class diagram
+-- @return [string] Text with uml class diagram for plantUML
 local function getPlantUmlFromNode(graph, nodeName)
 	local nodeArray = graph:findNodeByName(nodeName)
 
@@ -188,13 +183,23 @@ local function getPlantUmlFromNode(graph, nodeName)
 	local data = nil
 	local node = nodeArray[1]
 
-	if node.meta.type == "Project" then
+	assert((node.meta ~= nil and node.meta.type ~= nil) or (node.data ~= nil and node.data.type ~= nil), 
+		"Node has not defined type in meta.type or data.type. Is it correct luadb graph?")
+
+	local nodeType = nil
+	if node.meta ~= nil and node.meta.type ~= nil then
+		nodeType = node.meta.type
+	elseif node.data ~= nil and node.data.type ~= nil then
+		nodeType = node.data.type
+	end
+
+	if nodeType == "Project" then
 		data = getTableFromProjectNode(graph, node.data.name)
-	elseif node.meta.type == "directory" then
+	elseif nodeType == "directory" then
 		data = getTableFromDirectoryNode(graph, node.data.name)
-	elseif node.meta.type == "file" then
+	elseif nodeType == "file" then
 		data = getTableFromFileNode(graph, node.data.name)
-	elseif node.meta.type == "Class" then
+	elseif nodeType == "Class" then
 		data = getTableFromClassNode(graph, node.data.name)
 	else
 		return "@startuml\n@enduml"
@@ -202,63 +207,82 @@ local function getPlantUmlFromNode(graph, nodeName)
 
 	local strExtends = ""
 
+	--[[
+	plantuml template:
+
+		@startuml
+		class [name] {
+			+[property]
+			+[method]([args])
+		}
+		[extends] <|-- [name]
+		@enduml
+
+	]]
+
 	-- z nazbieranych dat sa vytvori text pre plantuml
 	for key, value in pairs(data) do
 		-- trieda
-		strOut = appendText(strOut, "class " .. key .. " {\n")
+		strOut = strOut .. "class " .. key .. " {\n"
 		
 		-- properties
 		for i=1, #value["properties"] do
-			strOut = appendText(strOut, "\t+" .. value["properties"][i] .. "\n")
+			strOut = strOut .. "\t+" .. value["properties"][i] .. "\n"
 		end
 		
 		-- methods
 		for i=1, #value["methods"] do
-			strOut = appendText(strOut, "\t+" .. value["methods"][i]["name"] .. "(")
+			strOut = strOut .. "\t+" .. value["methods"][i]["name"] .. "("
 			
 			-- arguments
 			for j=1, #value["methods"][i]["args"] do
 				if j == #value["methods"][i]["args"] then
-					strOut = appendText(strOut, value["methods"][i]["args"][j])
+					strOut = strOut .. value["methods"][i]["args"][j]
 				else
-					strOut = appendText(strOut, value["methods"][i]["args"][j] .. ", ")
+					strOut = strOut .. value["methods"][i]["args"][j] .. ", "
 				end
 			end
-			strOut = appendText(strOut, ")\n")
+			strOut = strOut .. ")\n"
 		end
 		
 		-- end of class block
-		strOut = appendText(strOut, "}\n")
+		strOut = strOut .. "}\n"
 
 		-- extends
 		if value["extends"] ~= nil then
-			strExtends = appendText(strExtends, value["extends"] .. " <|-- " .. key .. "\n")
+			strExtends = strExtends .. value["extends"] .. " <|-- " .. key .. "\n"
 		end
 	end
 
-	strOut = appendText(strOut, "\n\n" .. strExtends .. "\n")
+	strOut = strOut .. "\n\n" .. strExtends .. "\n"
 
-	strOut = appendText(strOut, "@enduml\n")
+	strOut = strOut .. "@enduml\n"
 
 	return strOut
 end
 
--- @param graph - luaDB graph with class graph
--- @param nodeName - name of node from which is needed image with class diagram
--- @return Image of Class diagram from node nodeName in SVG format as text
-local function getImageFromNode(graph, nodeName)
+----------------
+-- Main functions to get svg image from node various type (class node, file node, directory node and project node)
+-- @name getImageFromNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeName - [string] name of node from which is needed image with class diagram
+-- @param pathToPlantuml - [string] (optional) path to executable plantuml.jar for generating svg.
+-- @return [string] Image of Class diagram from node nodeName in SVG format as text
+local function getImageFromNode(graph, nodeName, pathToPlantuml)
 	local plant = getPlantUmlFromNode(graph, nodeName)
+	local pathToPlantuml = pathToPlantuml or "plantuml.jar"
 
 	-- vytvorenie docasneho suboru s plantUML textom
-	local file = io.open("_uml.txt", "w")
+	local file = assert(io.open("_uml.txt", "w"))
 	file:write(plant) 	-- zapis do txt suboru
 	file:close()
 
 	-- spustenie plantuml aplikacie s vytvorenym suborom na vstupe
-	os.execute("java -jar plantuml.jar -quiet -tsvg _uml.txt")
+	os.execute("java -jar " .. pathToPlantuml .. " -quiet -tsvg _uml.txt")
 
 	-- plantUML vytvori novy subor s obrazkom. Precita sa a ulozi sa text do premennej
-	file = io.open("_uml.svg", "r")
+	file = assert(io.open("_uml.svg", "r"))
 	local text = file:read("*all") 	-- precitanie svg
   	file:close()
   	
