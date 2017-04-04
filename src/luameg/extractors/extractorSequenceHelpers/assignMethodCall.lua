@@ -20,9 +20,9 @@ local function isObjectMethodWithArguments (node)
 end
 
 --
-local function binaryOperatorCall (node)
-	return (#node.data == 3) and (node.data[1].key == 'Value') and (node.data[2].key == 'BinaryOperator') and (node.data[3].key == 'Value')
-end
+-- local function binaryOperatorCall (node)
+-- 	return (#node.data == 1) and (node.data[1].key == 'Value') and (#noda.data[1].data == 1) and (node.data[1].data[1].key == 'ChainValue') and (#node.data[1].data[1].data == 1) and (#node.data[1].data[1].data[1].data == 2)
+-- end
 
 local function isSystemCall (methodName)
 	local systemMethods = {
@@ -39,12 +39,12 @@ local function isFunctionCall (node)
 	if (node.key ~= 'Exp') then
 		return false
 	else
-		if (binaryOperatorCall(node) == true) then
-			local hasArguments = isMethodWithArguments(node.data[3].data[1])
-			local withoutArguments = isMethodWithoutArguments(node.data[3].data[1])
+		-- if (binaryOperatorCall(node) == true) then
+		-- 	local hasArguments = isMethodWithArguments(node.data[3].data[1])
+		-- 	local withoutArguments = isMethodWithoutArguments(node.data[3].data[1])
 
-			return (hasArguments or withoutArguments) and (node.data[1].data[1].key == 'ChainValue')
-		else
+		-- 	return (hasArguments or withoutArguments) and (node.data[1].data[1].key == 'ChainValue')
+		-- else
 			local expKey = node.key
 			node = node.data[1].data[1]
 
@@ -53,7 +53,7 @@ local function isFunctionCall (node)
 			local objectMethodWithArguments = isObjectMethodWithArguments(node)
 
 			return hasArguments or withoutArguments or objectMethodWithArguments 
-		end
+		-- end
 	end
 end
 
@@ -105,9 +105,14 @@ local function constructMethodNode (node)
 		node = node.data[1].data[1]
 		-- newMethodNode.name = getName(node.data[1].data[1])
 		local helpName = node.data[1].data[2].data[1].text
+		print("-------------- " .. helpName .. " ---------------")
 		if (helpName:sub(1,1) == '.') then
 			varName = getName(node.data[1].data[1])
 			methodName = helpName:gsub("^.", "")
+		elseif (helpName:sub(1,1) == '\\') then
+			varName = getName(node.data[1].data[1])
+			helpName = node.data[1].data[2].data[1].data[1].text
+			methodName = helpName:gsub("^\\", "")
 		else
 			methodName = getName(node.data[1].data[1])
 		end
@@ -118,21 +123,22 @@ local function constructMethodNode (node)
 		node = node.data[1].data[1]
 		varName = getName(node.data[1].data[1])
 		methodName = node.data[1].data[2].text:gsub("^.", "")
+		methodName = methodName:gsub("^\\", "")
 
 	-- when method is called on object with binary operator '/' we need to consider the same
 	-- cases as in pure method calls
-	elseif (binaryOperatorCall(node)) then
+	-- elseif (binaryOperatorCall(node)) then
 
-		varName = getName(node.data[1].data[1])
-		if (isMethodWithArguments(node.data[3].data[1])) then
+	-- 	varName = getName(node.data[1].data[1])
+	-- 	if (isMethodWithArguments(node.data[3].data[1])) then
 
-			methodName = getName(node.data[3].data[1].data[1])
+	-- 		methodName = getName(node.data[3].data[1].data[1])
 
-		elseif (isMethodWithoutArguments(node.data[3].data[1])) then
+	-- 	elseif (isMethodWithoutArguments(node.data[3].data[1])) then
 
-			methodName = getName(node.data[3].data[1].data[1].data[1])
+	-- 		methodName = getName(node.data[3].data[1].data[1].data[1])
 
-		end
+	-- 	end
 
 	end
 

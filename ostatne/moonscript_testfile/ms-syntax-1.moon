@@ -34,16 +34,16 @@ class ObjectMethodCalls
 		testVar = TestFunctionCall!
 
 		a = testVar.getNumber!
-		@b = testVar/getNumber!
+		@b = testVar\getNumber!
 
 		c = testVar.getNumber()
-		@d = testVar/getNumber()
+		@d = testVar\getNumber()
 
 		e = testVar.getNumberWithArg 6, 1
-		@f = testVar/getNumberWithArg 6, 1
+		@f = testVar\getNumberWithArg 6, 1
 
 		g = testVar.getNumberWithArg (16)
-		@h = testVar/getNumberWithArg (16)
+		@h = testVar\getNumberWithArg (16)
 
 class ConditionsTest
 	ifMethod: () =>

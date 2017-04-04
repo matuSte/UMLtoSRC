@@ -97,6 +97,8 @@ local function subsequentMethodHelper(methodNode, hypergraph, scope, graphClassN
             local variableCalledFrom, methodName = assignModule.constructMethodNode(methodCallNode)
             local callNodes = hypergraph:findNodeByName(methodName)
 
+            print("METHOD NAME LOG !!! " .. methodName)
+
             -- TODO: handle method names that are the same as class names
             if (callNodes[1].meta.type == 'Class') and (variableCalledFrom == '') then
               scope[variableAssignedTo] = methodName
