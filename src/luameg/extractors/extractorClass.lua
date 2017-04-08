@@ -211,7 +211,7 @@ local function getGraph(ast, graph)
 		local className = classes[i]["name"]["text"]
 
 		-- vytvori sa novy uzol s triedou alebo ak uz existuje, tak sa k nemu pripoja nove hrany
-		local nodeClass = graph:findNodeByName(className)
+		local nodeClass = graph:findNodesByName(className)
 		if #nodeClass == 0 or nodeClass == nil then
 			nodeClass = luadb.node.new()
 			nodeClass.meta = nodeClass.meta or {}
@@ -226,7 +226,7 @@ local function getGraph(ast, graph)
 		
 		-- extends
 		if classes[i]["extends"] ~= nil then
-			local nodeExtended = graph:findNodeByName(classes[i]["extends"]["text"]) 
+			local nodeExtended = graph:findNodesByName(classes[i]["extends"]["text"]) 
 			if #nodeExtended == 0 then
 				nodeExtended = luadb.node.new()
 				nodeExtended.meta = nodeExtended.meta or {}
