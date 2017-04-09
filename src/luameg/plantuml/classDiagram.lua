@@ -189,12 +189,14 @@ end
 local function getPlantUmlFromNode(graph, nodeId)
 	assert(graph ~= nil and type(graph) == "table" and graph.nodes ~= nil, "Problem with graph. Is it luadb graph?")
 	local node = graph:findNodeByID(nodeId)
+	assert(node ~= nil, 'Node with id "' .. nodeId .. '" is nil. Is it correct id?')
 
 	if node == nil then
-		return "--@startuml\n@enduml"
+		return "@startuml\n@enduml"
 	end
 
-	local strOut = "@startuml\n"
+	local dataOut = {}
+	table.insert(dataOut, "@startuml\n")
 
 	local data = nil
 
@@ -238,30 +240,30 @@ local function getPlantUmlFromNode(graph, nodeId)
 	-- z nazbieranych dat sa vytvori text pre plantuml
 	for key, value in pairs(data) do
 		-- trieda
-		strOut = strOut .. "class " .. key .. " {\n"
+		table.insert(dataOut, "class " .. key .. " {\n")
 		
 		-- properties
 		for i=1, #value["properties"] do
-			strOut = strOut .. "\t+" .. value["properties"][i] .. "\n"
+			table.insert(dataOut, "\t+" .. value["properties"][i] .. "\n")
 		end
 		
 		-- methods
 		for i=1, #value["methods"] do
-			strOut = strOut .. "\t+" .. value["methods"][i]["name"] .. "("
+			table.insert(dataOut, "\t+" .. value["methods"][i]["name"] .. "(")
 
 			-- arguments
 			for j=1, #value["methods"][i]["args"] do
 				if j == #value["methods"][i]["args"] then
-					strOut = strOut .. value["methods"][i]["args"][j]
+					table.insert(dataOut, value["methods"][i]["args"][j])
 				else
-					strOut = strOut .. value["methods"][i]["args"][j] .. ", "
+					table.insert(dataOut, value["methods"][i]["args"][j] .. ", ")
 				end
 			end
-			strOut = strOut .. ")\n"
+			table.insert(dataOut, ")\n")
 		end
 
 		-- end of class block
-		strOut = strOut .. "}\n"
+		table.insert(dataOut, "}\n")
 
 		-- extends
 		if value["extends"] ~= nil then
@@ -269,11 +271,11 @@ local function getPlantUmlFromNode(graph, nodeId)
 		end
 	end
 
-	strOut = strOut .. "\n\n" .. strExtends .. "\n"
+	table.insert(dataOut, "\n\n" .. strExtends .. "\n")
 
-	strOut = strOut .. "@enduml\n"
+	table.insert(dataOut, "@enduml\n")
 
-	return strOut
+	return table.concat(dataOut)
 end
 
 ----------------
