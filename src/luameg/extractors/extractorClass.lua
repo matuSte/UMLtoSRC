@@ -1,9 +1,45 @@
 -----------------
 -- Submodule for extracting class graph from AST
--- @release 29.03.2017 Matúš Štefánik
+-- @release 09.04.2017 Matúš Štefánik
 -----------------
 
 local luadb = require 'luadb.hypergraph'
+
+-----------
+-- @name createNode
+-- @author Matus Stefanik
+-- @param type - [string] type of node. Write to meta.type
+-- @param name - [string] name of node. Write to data.name
+-- @param astId - [string] id of ast in astManager. Write to data.astId
+-- @param astNodeId - [number] nodeid from AST tree. Write to data.astNodeId
+-- @return [table] new luadb node
+local function createNode(type, name, astId, astNodeId)
+	local node = luadb.node.new()
+	node.meta = node.meta or {}
+	node.meta.type = type
+	node.data.name = name
+	node.data.astId = astId
+	node.data.astNodeId = astNodeId
+	return node
+end
+
+-----------
+-- @name createNode
+-- @author Matus Stefanik
+-- @param label - [string] label of edge. Write to label
+-- @param from - [table] luadb node as source of this edge
+-- @param to - [table]  luadb node as target of this edge
+-- @param isOriented - [boolean] if this edge is oriented or not
+-- @return [table] new luadb edge
+local function createEdge(label, from, to, isOriented)
+	assert(type(from)=="table" and type(to)=="table", 'Node "from" or "to" is not table. Is it correct luadb node?')
+	local edge = luadb.edge.new()
+	edge.label = label
+	edge:setSource(from)
+	edge:setTarget(to)
+	if isOriented ~= nil and isOriented == true then edge:setAsOriented() end
+	return edge
+end
 
 ---------------------
 -- Vrati zoznam podstromov, pre ktore boli splnene neededValue a inKey.
@@ -198,11 +234,15 @@ end
 -- Return all nodes and edges as graph from this AST
 -- @name getGraph
 -- @author Matus Stefanik
--- @param ast - [table] ast from luameg (moonscript)
--- @param graph - [table] optional. New nodes and edges insert to this graph.
--- @return [table] graph (created with LuaDB) with nodes and edges needed for class diagram from ast
-local function getGraph(ast, graph)
+-- @param astManager - [table] AST manager from luadb.managers.AST. Manager contains many AST with unique astId.
+-- @param astId - [table] ast id from ast manager
+-- @param graph - [table] (optional) New nodes and edges insert to this graph.
+-- @return [table] graph (created with LuaDB.hypergraph) with nodes and edges needed for class diagram from ast
+local function getGraph(astManager, astId, graph)
 	local graph = graph or luadb.graph.new()
+	assert(astManager ~= nil, "astManager is nil.")
+	local ast = astManager:findASTByID(astId)
+	assert(ast ~= nil, 'AST is nil. Exist ast with astId:"' .. astId .. '" in astManager?')
 
 	-- pomocna tabulka s potrebnymi udajmi pre vytvorenie grafu tried
 	local classes = getAllClasses(ast)
@@ -212,12 +252,9 @@ local function getGraph(ast, graph)
 
 		-- vytvori sa novy uzol s triedou alebo ak uz existuje, tak sa k nemu pripoja nove hrany
 		local nodeClass = graph:findNodesByName(className)
-		if #nodeClass == 0 or nodeClass == nil then
-			nodeClass = luadb.node.new()
-			nodeClass.meta = nodeClass.meta or {}
-			nodeClass.meta.type = "Class"
-			nodeClass.data.name = className
-			nodeClass.data.astNodeId = classes[i]["astNode"]["nodeid"]
+		if nodeClass == nil or #nodeClass == 0 then
+			local nodeClassAstNodeId = classes[i]["astNode"]["nodeid"]
+			nodeClass = createNode("Class", className, astId, nodeClassAstNodeId)
 
 			graph:addNode(nodeClass)
 		else
@@ -228,54 +265,41 @@ local function getGraph(ast, graph)
 		if classes[i]["extends"] ~= nil then
 			local nodeExtended = graph:findNodesByName(classes[i]["extends"]["text"]) 
 			if #nodeExtended == 0 then
-				nodeExtended = luadb.node.new()
-				nodeExtended.meta = nodeExtended.meta or {}
-				nodeExtended.meta.type = "Class"
-				nodeExtended.data.name = classes[i]["extends"]["text"]
+
+				local nodeExtendedName = classes[i]["extends"]["text"]
+				local nodeExtendedAstNodeId = classes[i]["extends"]["nodeid"]
+				nodeExtended = createNode("Class", nodeExtendedName, astId, nodeExtendedAstNodeId)
 				graph:addNode(nodeExtended)
 			else 
 				nodeExtended = nodeExtended[1]		-- zoberiem len prvy vyskyt
 			end
 
-			local edge = luadb.edge.new()
-			edge.label = "Extends"
-			edge:setSource(nodeClass)
-			edge:setTarget(nodeExtended)
-			edge:setAsOriented()
+			local edge = createEdge("Extends", nodeClass, nodeExtended, true)
 
 			graph:addEdge(edge)
 		end
 		
 		-- methods
 		for j=1, #classes[i]["methods"] do
-			local nodeMethod = luadb.node.new()
-			nodeMethod.meta = nodeMethod.meta or {}
-			nodeMethod.meta.type = "Method"
-			nodeMethod.data.name = classes[i]["methods"][j]["name"]["text"]
-			nodeMethod.data.astNodeId = classes[i]["methods"][j]["astNode"]["nodeid"]
+
+			local nodeMethodName = classes[i]["methods"][j]["name"]["text"]
+			local nodeMethodAstNodeId = classes[i]["methods"][j]["astNode"]["nodeid"]
+			local nodeMethod = createNode("Method", nodeMethodName, astId, nodeMethodAstNodeId)
 			
 			-- arguments
 			for k=1, #classes[i]["methods"][j]["args"] do
-				local nodeArg = luadb.node.new()
-				nodeArg.meta = nodeArg.meta or {}
-				nodeArg.meta.type = "Argument"
-				nodeArg.data.name = classes[i]["methods"][j]["args"][k]["text"]
 
-				local edgeArg = luadb.edge.new()
-				edgeArg.label = "Has"  -- or "is called with" ?
-				edgeArg:setAsOriented()
-				edgeArg:setSource(nodeMethod)
-				edgeArg:setTarget(nodeArg)
+				local nodeArgName = classes[i]["methods"][j]["args"][k]["text"]
+				local nodeArgAstNodeId = classes[i]["methods"][j]["args"][k]["nodeid"]
+				local nodeArg = createNode("Argument", nodeArgName, astId, nodeArgAstNodeId)
+
+				local edgeArg = createEdge("Has", nodeMethod, nodeArg, true)
 
 				graph:addNode(nodeArg)
 				graph:addEdge(edgeArg)
 			end
 
-			local edge = luadb.edge.new()
-			edge.label = "Contains"
-			edge:setSource(nodeClass)
-			edge:setTarget(nodeMethod)
-			edge:setAsOriented()
+			local edge = createEdge("Contains", nodeClass, nodeMethod, true)
 
 			graph:addEdge(edge)
 			graph:addNode(nodeMethod)
@@ -283,16 +307,12 @@ local function getGraph(ast, graph)
 
 		-- properties
 		for j=1, #classes[i]["properties"] do
-			local nodeProp = luadb.node.new()
-			nodeProp.meta = nodeProp.meta or {}
-			nodeProp.meta.type = "Property"
-			nodeProp.data.name = classes[i]["properties"][j]["text"]:gsub('%W', '')
 
-			local edge = luadb.edge.new()
-			edge.label = "Contains"
-			edge:setSource(nodeClass)
-			edge:setTarget(nodeProp)
-			edge:setAsOriented()
+			local nodePropName = classes[i]["properties"][j]["text"]:gsub('%W', '')
+			local nodePropAstNodeId = classes[i]["properties"][j]["nodeid"]
+			local nodeProp = createNode("Property", nodePropName, astId, nodePropAstNodeId)
+
+			local edge = createEdge("Contains", nodeClass, nodeProp, true)
 
 			graph:addEdge(edge)
 			graph:addNode(nodeProp)
