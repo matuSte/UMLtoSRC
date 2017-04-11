@@ -244,12 +244,12 @@ local function getPlantUmlFromNode(graph, nodeId)
 		
 		-- properties
 		for i=1, #value["properties"] do
-			table.insert(dataOut, "\t+" .. value["properties"][i] .. "\n")
+			table.insert(dataOut, "\t+ " .. value["properties"][i] .. "\n")
 		end
 		
 		-- methods
 		for i=1, #value["methods"] do
-			table.insert(dataOut, "\t+" .. value["methods"][i]["name"] .. "(")
+			table.insert(dataOut, "\t+ " .. value["methods"][i]["name"] .. "(")
 
 			-- arguments
 			for j=1, #value["methods"][i]["args"] do
