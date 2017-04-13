@@ -1,6 +1,6 @@
 -------------------------------------------------------
 -- Interface for luameg
--- @release 2017/03/16 Matúš Štefánik, Tomáš Žigo
+-- @release 2017/04/09 Matúš Štefánik, Tomáš Žigo
 -------------------------------------------------------
 
 local io, table, pairs, type, print, assert, tostring = io, table, pairs, type, print, assert, tostring
@@ -15,6 +15,7 @@ local AST_capt = require 'luameg.captures.AST'
 
 local filestree = require 'luadb.extraction.filestree'
 local hypergraph = require 'luadb.hypergraph'
+local moduleAstManager = require "luadb.manager.AST"
 
 local extractorClass = require 'luameg.extractors.extractorClass'
 local graphConvertor = require 'luameg.convertors.graphConvertors'
@@ -77,26 +78,39 @@ end
 -- Get class graph from ast (one file)
 -- @name getClassGraph
 -- @author Matus Stefanik
--- @param ast - [table] moonscript ast from luameg from which is extracted new graph or inserted new nodes and edges to graph
+-- @param astManager - [table] AST manager from luadb.managers.AST. Manager contains many AST with unique astId
+-- @param astId - [string] id of AST in astManager from which is extracted new graph or inserted new nodes and edges to graph
 -- @param graph - [table] optional. Graph which is filled.
 -- @return [table] graph with class nodes, methods, properties and arguments.
-local function getClassGraph(ast, graph)
+local function getClassGraph(astManager, astId, graph)
 	local graph = graph or hypergraph.graph.new()
+	assert(astManager ~= nil, "astManager is nil.")
 
-	return extractorClass.getGraph(ast, graph)
+	return extractorClass.getGraph(astManager, astId, graph)
 end
 
 -------------------------------
--- Get graph from one file
+-- Get complete graph from one file
 -- @name getGraphFile
 -- @author Matus Stefanik
 -- @param path - [string] path to file
+-- @param astManager - [table] (optional) AST manager from luadb.managers.AST. Manager contains many AST with unique astId.
 -- @return [table] graph with class graph and sequence graph and [table] AST for this file
-local function getGraphFile(path)
+local function getGraphFile(path, astManager)
 	assert(path ~= nil, "Path is nil")
 	local ast = processFile(path)
 	assert(ast ~= nil, "Ast for file is nil. Does file exist?")
-	local graph = getClassGraph(ast)
+
+	local astManager = astManager or moduleAstManager.new()
+
+	local astRoot, astId = astManager:findASTByPath(path)
+
+	if astRoot == nil then
+		astId = astManager:addAST(ast, path)
+		astRoot = ast
+	end
+
+	local graph = getClassGraph(astManager, astId, nil)
 
 	-- doplnenie graph o sekvencny graf
 	-- graph = addSequenceGraphIntoClassGraph(ast, graph)
@@ -105,12 +119,16 @@ local function getGraphFile(path)
 end
 
 --------------------------------------
+-- Get complete graph from directory
 -- @name getGraphProject
 -- @author Matus Stefanik
 -- @param dir - [string] Directory with moonscript project
--- @return [table] Return complete graph of project
-local function getGraphProject(dir)
+-- @param astManager - [table] (optional) AST manager from luadb.managers.AST. Manager contains many AST with unique astId.
+-- @return [table] Return complete graph of project and [table] ast manager with all processed AST
+local function getGraphProject(dir, astManager)
 	assert(dir ~= nil, "Directory path is nil")
+
+	local astManager = astManager or moduleAstManager.new()
 
 	-- vytvori sa graf so subormi a zlozkami
 	local graphProject = filestree.extract(dir)
@@ -140,9 +158,16 @@ local function getGraphProject(dir)
 
 				-- vytvorit AST z jedneho suboru a nasledne novy graf
 				local astFile = processFile(nodeFile.data.path)
+				local astId = astManager:addAST(astFile, nodeFile.data.path)
+
+				-- uzol suboru bude obsahovat koren AST stromu
+				nodeFile.data.astId = astId
+				nodeFile.data.astNodeId = astFile["nodeid"]
 
 				-- ziska sa graf s triedami pre jeden subor
-				local graphFileClass = getClassGraph(astFile)
+				local graphFileClass = getClassGraph(astManager, astId, nil)
+
+				-- TODO: doplnit class graf o sekvencny
 
 				-- priradi z grafu jednotlive uzly a hrany do kompletneho vysledneho grafu
 				for j=1, #graphFileClass.nodes do
@@ -169,7 +194,7 @@ local function getGraphProject(dir)
 		end
 	end
 
-	return graphProject
+	return graphProject, astManager
 end
 
 

@@ -7,5 +7,6 @@ local classDiagram = require "luameg.plantuml.classDiagram"
 
 return {
 	getClassPlantuml = classDiagram.getPlantUmlFromNode,
-	getClassDiagramSvg = classDiagram.getImageFromNode
+	getClassDiagramSvg = classDiagram.getImageFromNode,
+	getClassJsonData = classDiagram.getJsonDataFromNode
 }

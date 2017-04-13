@@ -1,9 +1,22 @@
 --------------------------------
 -- Submodule for generating plantuml template for uml class diagram and svg.
--- @release 03.04.2017 Matúš Štefánik
+-- @release 08.04.2017 Matúš Štefánik
 --------------------------------
 
 local pairs = pairs
+
+-----------------------
+-- @name tableSize
+-- @author Matus Stefanik
+-- @param T - [table] table
+-- @return [number] size of table T
+local function tableSize(T)
+	local count = 0
+	for _ in pairs(T) do
+		count = count + 1
+	end
+	return count
+end
 
 ---------------------------------------
 -- Pomocna funkcia na extrahovanie potrebnych 
@@ -11,7 +24,9 @@ local pairs = pairs
 -- nazov rodica apod z uzlu typu trieda
 --
 -- Ukazka vystupnej tabulky dataOut:
---	data["Observer"]["extends"]
+--	data["Observer"]["nodeId"]
+--	data["Observer"]["extends"]["name"]
+--	data["Observer"]["extends"]["nodeId"]
 --	data["Observer"]["properties"][i]
 --	data["Observer"]["methods"][i]["name"]
 --	data["Observer"]["methods"][i]["args"][i]
@@ -36,7 +51,7 @@ local function getTableFromClassNode(graph, nodeId, dataOut)
 	if node.meta.type:lower() == "class" and dataOut[node.data.name] == nil then
 
 		-- vytvorenie polozky zatial s prazdnymi udajmi
-		dataOut[node.data.name] = {["extends"]=nil, ["properties"]={}, ["methods"]={}}
+		dataOut[node.data.name] = {["nodeId"]=node.id, ["extends"]=nil, ["properties"]={}, ["methods"]={}}
 
 		-- najdenie vsetkych metod a clenskych premennych pre uzol class
 		local edges_MethodsProperties = graph:findEdgesBySource(node.id, "Contains")
@@ -66,7 +81,7 @@ local function getTableFromClassNode(graph, nodeId, dataOut)
 			local nodeChild = edges_Class[i].to[1]
 			if nodeChild.meta.type:lower() == "class" then
 				-- extends
-				dataOut[node.data.name]["extends"] = nodeChild.data.name
+				dataOut[node.data.name]["extends"] = {["name"]=nodeChild.data.name, ["nodeId"]=nodeChild.id}
 				dataOut = getTableFromClassNode(graph, nodeChild.id, dataOut)
 			end
 		end
@@ -117,7 +132,7 @@ local function getTableFromDirectoryNode(graph, nodeId, outData)
 
 	if node.meta.type:lower() == "directory" then
 
-		local edges_subfile = graph:findEdgesBySource(node.id, "Subfile")
+		local edges_subfile = graph:findEdgesBySource(node.id, "contains")
 		for i=1, #edges_subfile do
 			local nodeChild = edges_subfile[i].to[1]
 			if nodeChild.meta.type:lower() == "file" then
@@ -174,12 +189,14 @@ end
 local function getPlantUmlFromNode(graph, nodeId)
 	assert(graph ~= nil and type(graph) == "table" and graph.nodes ~= nil, "Problem with graph. Is it luadb graph?")
 	local node = graph:findNodeByID(nodeId)
+	assert(node ~= nil, 'Node with id "' .. nodeId .. '" is nil. Is it correct id?')
 
 	if node == nil then
-		return "--@startuml\n@enduml"
+		return "@startuml\n@enduml"
 	end
 
-	local strOut = "@startuml\n"
+	local dataOut = {}
+	table.insert(dataOut, "@startuml\n")
 
 	local data = nil
 
@@ -223,42 +240,42 @@ local function getPlantUmlFromNode(graph, nodeId)
 	-- z nazbieranych dat sa vytvori text pre plantuml
 	for key, value in pairs(data) do
 		-- trieda
-		strOut = strOut .. "class " .. key .. " {\n"
+		table.insert(dataOut, "class " .. key .. " {\n")
 		
 		-- properties
 		for i=1, #value["properties"] do
-			strOut = strOut .. "\t+" .. value["properties"][i] .. "\n"
+			table.insert(dataOut, "\t+ " .. value["properties"][i] .. "\n")
 		end
 		
 		-- methods
 		for i=1, #value["methods"] do
-			strOut = strOut .. "\t+" .. value["methods"][i]["name"] .. "("
+			table.insert(dataOut, "\t+ " .. value["methods"][i]["name"] .. "(")
 
 			-- arguments
 			for j=1, #value["methods"][i]["args"] do
 				if j == #value["methods"][i]["args"] then
-					strOut = strOut .. value["methods"][i]["args"][j]
+					table.insert(dataOut, value["methods"][i]["args"][j])
 				else
-					strOut = strOut .. value["methods"][i]["args"][j] .. ", "
+					table.insert(dataOut, value["methods"][i]["args"][j] .. ", ")
 				end
 			end
-			strOut = strOut .. ")\n"
+			table.insert(dataOut, ")\n")
 		end
 
 		-- end of class block
-		strOut = strOut .. "}\n"
+		table.insert(dataOut, "}\n")
 
 		-- extends
 		if value["extends"] ~= nil then
-			strExtends = strExtends .. value["extends"] .. " <|-- " .. key .. "\n"
+			strExtends = strExtends .. value["extends"]["name"] .. " <|-- " .. key .. "\n"
 		end
 	end
 
-	strOut = strOut .. "\n\n" .. strExtends .. "\n"
+	table.insert(dataOut, "\n\n" .. strExtends .. "\n")
 
-	strOut = strOut .. "@enduml\n"
+	table.insert(dataOut, "@enduml\n")
 
-	return strOut
+	return table.concat(dataOut)
 end
 
 ----------------
@@ -294,9 +311,163 @@ local function getImageFromNode(graph, nodeId, pathToPlantuml)
   	return text
 end
 
+------------
+-- @name getJsonDataFromNode
+-- @author Matus Stefanik
+-- @param graph - [table] luadb graph from luameg with class nodes
+-- @param nodeId - [string] node id
+-- @return [string] [string] json data with node data and link data
+local function getJsonDataFromNode(graph, nodeId)
+	assert(graph ~= nil and type(graph) == "table" and graph.nodes ~= nil, "Problem with graph. Is it luadb graph?")
+	local node = graph:findNodeByID(nodeId)
+	assert(node ~= nil, 'Node is nil. Is it correct nodeId? ("' .. nodeId .. '")')
+
+	local outnode = {}
+	local outlink = {}
+	local templink = {}
+
+	if node == nil then
+		return "", ""
+	end
+
+	local data = nil
+
+	assert((node.meta ~= nil and node.meta.type ~= nil) or (node.data ~= nil and node.data.type ~= nil), 
+		"Node has not defined type in meta.type or data.type. Is it correct luadb graph?")
+
+	local nodeType = nil
+	if node.meta ~= nil and node.meta.type ~= nil then
+		nodeType = node.meta.type
+	elseif node.data ~= nil and node.data.type ~= nil then
+		nodeType = node.data.type
+	end
+
+	if nodeType:lower() == "project" then
+		data = getTableFromProjectNode(graph, node.id)
+	elseif nodeType:lower() == "directory" then
+		data = getTableFromDirectoryNode(graph, node.id)
+	elseif nodeType:lower() == "file" then
+		data = getTableFromFileNode(graph, node.id)
+	elseif nodeType:lower() == "class" then
+		data = getTableFromClassNode(graph, node.id)
+	else
+		return "", ""
+	end
+
+	--	data["Observer"]["nodeId"]
+	--	data["Observer"]["extends"]["name"]
+	--	data["Observer"]["extends"]["nodeId"]
+	--	data["Observer"]["properties"][i]
+	--	data["Observer"]["methods"][i]["name"]
+	--	data["Observer"]["methods"][i]["args"][i]
+
+	local counter = 1
+	local countClasses = tableSize(data)
+
+	for className, value in pairs(data) do
+		local nodeIdNum = string.match(value["nodeId"], "%d+")
+		table.insert(outnode, '{\n\tkey: ' .. nodeIdNum .. ',\n')
+		table.insert(outnode, '\tname: "' .. className .. '",\n')
+		table.insert(outnode, '\tproperties: [\n')
+
+		-- properties
+		for i=1, #value["properties"] do
+			local property = value["properties"][i]
+			table.insert(outnode, '\t\t{ name: "' .. property .. '", visibility: "public" ')
+
+			if i == #value["properties"] then
+				-- last
+				table.insert(outnode, '}\n')
+			else
+				table.insert(outnode, '},\n')
+			end
+		end
+
+		table.insert(outnode, '\t],\n')
+		table.insert(outnode, '\tmethods: [\n')
+		-- methods
+		for i=1, #value["methods"] do
+			local methodData = value["methods"][i]
+			local methodName = methodData["name"]
+
+			table.insert(outnode, '\t\t{ name: "' .. methodName .. '", visibility: "public", parameters: [ ')
+
+			-- arguments
+			for j=1, #methodData["args"] do
+				local argName = methodData["args"][j]
+				table.insert(outnode, ' { name: "' .. argName .. '" }')
+
+				if j ~= #methodData["args"] then
+					-- not last
+					table.insert(outnode, ', ')
+				end
+			end
+
+			if i == #value["methods"] then
+				-- last
+				table.insert(outnode, '] }\n')
+			else
+				table.insert(outnode, '] },\n')
+			end
+		end
+		table.insert(outnode, '\t]\n')
+
+		if counter == countClasses then
+			-- last
+			table.insert(outnode, '}\n')
+		else
+			table.insert(outnode, '},\n')
+		end
+
+		-- extends
+		if value["extends"] ~= nil then
+			local childId = value["extends"]["nodeId"]
+			local childIdNum = string.match(childId, "%d+")
+			table.insert(templink, {nodeIdNum, childIdNum})
+		end
+
+		counter = counter + 1
+	end
+
+	-- relationships
+	for i=1, #templink do
+		local nodeIdNum = templink[i][1]
+		local childIdNum = templink[i][2]
+
+		table.insert(outlink, '{ from: ' .. nodeIdNum .. ', to: ' .. childIdNum .. ', relationship: "generalization" } ')
+		if i == #templink then
+			-- last
+			table.insert(outlink, '\n')
+		else
+			table.insert(outlink, ',\n')
+		end
+	end
+
+	--[[
+	Ukazka:
+	outnode = [=[
+	      {
+	        key: 1,
+	        name: "Component",
+	        properties: [
+	          { name: "name", visibility: "public" }
+	        ],
+	        methods: [
+	          { name: "new", visibility: "public", parameters: [{ name: "title", name: "value" }] }
+	        ]
+	      } ]=]
+
+	outlink = [=[
+	      { from: 11, to: 1, relationship: "generalization" },
+	      { from: 12, to: 1, relationship: "generalization" }
+	      ]=]
+	]]
+	return table.concat(outnode), table.concat(outlink)
+end
 
 return {
 	getPlantUmlFromNode = getPlantUmlFromNode,
-	getImageFromNode = getImageFromNode
+	getImageFromNode = getImageFromNode,
+	getJsonDataFromNode = getJsonDataFromNode
 }
 
