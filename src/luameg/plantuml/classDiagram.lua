@@ -54,14 +54,14 @@ local function getTableFromClassNode(graph, nodeId, dataOut)
 		dataOut[node.data.name] = {["nodeId"]=node.id, ["extends"]=nil, ["properties"]={}, ["methods"]={}}
 
 		-- najdenie vsetkych metod a clenskych premennych pre uzol class
-		local edges_MethodsProperties = graph:findEdgesBySource(node.id, "Contains")
+		local edges_MethodsProperties = graph:findEdgesBySource(node.id, "contains")
 		for i=1, #edges_MethodsProperties do
 			local nodeChild = edges_MethodsProperties[i].to[1]
 			if nodeChild.meta.type:lower() == "method" then
 				-- method with arguments
 				local argsList = {}
 
-				local edges_argument = graph:findEdgesBySource(nodeChild.id, "Has")
+				local edges_argument = graph:findEdgesBySource(nodeChild.id, "has")
 				for j=1, #edges_argument do
 					local nodeArgument = edges_argument[j].to[1]
 					if nodeArgument.meta.type:lower() == "argument" then
@@ -76,7 +76,7 @@ local function getTableFromClassNode(graph, nodeId, dataOut)
 		end
 
 		-- najdenie vsetkych rodicovskych tried
-		local edges_Class = graph:findEdgesBySource(node.id, "Extends")
+		local edges_Class = graph:findEdgesBySource(node.id, "extends")
 		for i=1, #edges_Class do
 			local nodeChild = edges_Class[i].to[1]
 			if nodeChild.meta.type:lower() == "class" then
@@ -105,7 +105,7 @@ local function getTableFromFileNode(graph, nodeId, outData)
 
 	if node.meta.type:lower() == "file" then
 
-		local edges_class = graph:findEdgesBySource(node.id, "Contains")
+		local edges_class = graph:findEdgesBySource(node.id, "contains")
 		for i=1, #edges_class do
 			local nodeChild = edges_class[i].to[1]
 			if nodeChild.meta.type:lower() == "class" then
@@ -163,7 +163,7 @@ local function getTableFromProjectNode(graph, nodeId, outData)
 
 	if node.meta.type:lower() == "project" then
 
-		local edges_fileDir = graph:findEdgesBySource(node.id, "Contains")
+		local edges_fileDir = graph:findEdgesBySource(node.id, "contains")
 		for i=1, #edges_fileDir do
 			local nodeChild = edges_fileDir[i].to[1]
 			if nodeChild.meta.type:lower() == "file" then

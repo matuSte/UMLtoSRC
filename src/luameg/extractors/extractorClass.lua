@@ -254,7 +254,7 @@ local function getGraph(astManager, astId, graph)
 		local nodeClass = graph:findNodesByName(className)
 		if nodeClass == nil or #nodeClass == 0 then
 			local nodeClassAstNodeId = classes[i]["astNode"]["nodeid"]
-			nodeClass = createNode("Class", className, astId, nodeClassAstNodeId)
+			nodeClass = createNode("class", className, astId, nodeClassAstNodeId)
 
 			graph:addNode(nodeClass)
 		else
@@ -268,13 +268,13 @@ local function getGraph(astManager, astId, graph)
 
 				local nodeExtendedName = classes[i]["extends"]["text"]
 				local nodeExtendedAstNodeId = classes[i]["extends"]["nodeid"]
-				nodeExtended = createNode("Class", nodeExtendedName, astId, nodeExtendedAstNodeId)
+				nodeExtended = createNode("class", nodeExtendedName, astId, nodeExtendedAstNodeId)
 				graph:addNode(nodeExtended)
 			else 
 				nodeExtended = nodeExtended[1]		-- zoberiem len prvy vyskyt
 			end
 
-			local edge = createEdge("Extends", nodeClass, nodeExtended, true)
+			local edge = createEdge("extends", nodeClass, nodeExtended, true)
 
 			graph:addEdge(edge)
 		end
@@ -284,22 +284,22 @@ local function getGraph(astManager, astId, graph)
 
 			local nodeMethodName = classes[i]["methods"][j]["name"]["text"]
 			local nodeMethodAstNodeId = classes[i]["methods"][j]["astNode"]["nodeid"]
-			local nodeMethod = createNode("Method", nodeMethodName, astId, nodeMethodAstNodeId)
+			local nodeMethod = createNode("method", nodeMethodName, astId, nodeMethodAstNodeId)
 			
 			-- arguments
 			for k=1, #classes[i]["methods"][j]["args"] do
 
 				local nodeArgName = classes[i]["methods"][j]["args"][k]["text"]
 				local nodeArgAstNodeId = classes[i]["methods"][j]["args"][k]["nodeid"]
-				local nodeArg = createNode("Argument", nodeArgName, astId, nodeArgAstNodeId)
+				local nodeArg = createNode("argument", nodeArgName, astId, nodeArgAstNodeId)
 
-				local edgeArg = createEdge("Has", nodeMethod, nodeArg, true)
+				local edgeArg = createEdge("has", nodeMethod, nodeArg, true)
 
 				graph:addNode(nodeArg)
 				graph:addEdge(edgeArg)
 			end
 
-			local edge = createEdge("Contains", nodeClass, nodeMethod, true)
+			local edge = createEdge("contains", nodeClass, nodeMethod, true)
 
 			graph:addEdge(edge)
 			graph:addNode(nodeMethod)
@@ -310,9 +310,9 @@ local function getGraph(astManager, astId, graph)
 
 			local nodePropName = classes[i]["properties"][j]["text"]:gsub('%W', '')
 			local nodePropAstNodeId = classes[i]["properties"][j]["nodeid"]
-			local nodeProp = createNode("Property", nodePropName, astId, nodePropAstNodeId)
+			local nodeProp = createNode("property", nodePropName, astId, nodePropAstNodeId)
 
-			local edge = createEdge("Contains", nodeClass, nodeProp, true)
+			local edge = createEdge("contains", nodeClass, nodeProp, true)
 
 			graph:addEdge(edge)
 			graph:addNode(nodeProp)

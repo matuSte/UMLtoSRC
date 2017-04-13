@@ -137,9 +137,9 @@ local function getGraphProject(dir, astManager)
 	local projectNode = hypergraph.node.new()
 	projectNode.data.name = "Project " .. dir   -- TODO: vyriesit ziskanie nazvu projektu
 	projectNode.meta = projectNode.meta or {}
-	projectNode.meta.type = "Project"
+	projectNode.meta.type = "project"
 	local projectEdge = hypergraph.edge.new()
-	projectEdge.label = "Contains"
+	projectEdge.label = "contains"
 	projectEdge:setSource(projectNode)
 	projectEdge:setTarget(graphProject.nodes[1])
 	projectEdge:setAsOriented()
@@ -151,7 +151,7 @@ local function getGraphProject(dir, astManager)
 		local nodeFile = graphProject.nodes[i]
 
 		-- ak je dany uzol typu subor
-		if nodeFile.meta ~= nil and nodeFile.meta.type == "file" then
+		if nodeFile.meta ~= nil and nodeFile.meta.type:lower() == "file" then
 
 			-- ak je subor s koncovkou .moon
 			if nodeFile.data.name:lower():match("^.+(%..+)$") == ".moon" then
@@ -174,9 +174,9 @@ local function getGraphProject(dir, astManager)
 					graphProject:addNode(graphFileClass.nodes[j])
 
 					-- vytvori sa hrana "subor obsahuje triedu"
-					if graphFileClass.nodes[j].meta.type == "Class" then
+					if graphFileClass.nodes[j].meta.type:lower() == "class" then
 						local newEdge = hypergraph.edge.new()
-						newEdge.label = "Contains"
+						newEdge.label = "contains"
 						newEdge:setSource(nodeFile)
 						newEdge:setTarget(graphFileClass.nodes[j])
 						newEdge:setAsOriented()
