@@ -1,57 +1,88 @@
+--------------------------------
+-- Submodule for generating plantuml template for uml class diagram and svg.
+-- @release 08.04.2017 Matúš Štefánik
+--------------------------------
+
 local pairs = pairs
 
-
--- TODO: effective append
-local function appendText(text, newText)
-	return text .. newText
+-----------------------
+-- @name tableSize
+-- @author Matus Stefanik
+-- @param T - [table] table
+-- @return [number] size of table T
+local function tableSize(T)
+	local count = 0
+	for _ in pairs(T) do
+		count = count + 1
+	end
+	return count
 end
 
-
---[[
-Ukazka vystupnej tabulky dataOut:
-	data["Observer"]["extends"]
-	data["Observer"]["properties"][i]
-	data["Observer"]["methods"][i]["name"]
-	data["Observer"]["methods"][i]["args"][i]
-
-@param graph - luaDB graph with class graph
-@param nodeName - name of node for search
-@param dataOut - optional. Using in recursion. dataOut is returned.
-@return table with all collected info for class diagram from this nodeName
-]]--
-local function getTableFromClassNode(graph, nodeName, dataOut)
+---------------------------------------
+-- Pomocna funkcia na extrahovanie potrebnych 
+-- hodnot ako nazov triedy, metody, clenske premenne, 
+-- nazov rodica apod z uzlu typu trieda
+--
+-- Ukazka vystupnej tabulky dataOut:
+--	data["Observer"]["nodeId"]
+--	data["Observer"]["extends"]["name"]
+--	data["Observer"]["extends"]["nodeId"]
+--	data["Observer"]["properties"][i]
+--	data["Observer"]["methods"][i]["name"]
+--	data["Observer"]["methods"][i]["args"][i]
+--
+-- @name getTableFromCLassNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeId - [string] id of node for search
+-- @param dataOut - [table] optional. Using in recursion. dataOut is returned.
+-- @return [table] table with all collected info for class diagram from this nodeId
+local function getTableFromClassNode(graph, nodeId, dataOut)
 	local dataOut = dataOut or {}
 
-	--[[ moze vratit viacero uzlov s rovnakym nazvom. Nazov triedy, nazov priecinka, suboru 
-	     mozu byt rovnake
-	]]
-	local nodeArray = graph:findNodeByName(nodeName)
+	assert(graph ~= nil, "Graph is nil")
+	assert(type(graph) == "table" and graph.nodes ~= nil and graph.edges ~= nil, "Problem with graph. Is it luadb graph?")
+	assert(nodeId ~= nil and type(nodeId) == "string", "Problem with nodeId. Is it string?")
 
-	for n=1, #nodeArray do
-		if nodeArray[n].meta.type == "Class" and dataOut[nodeArray[n].data.name] == nil then
+	local node = graph:findNodeByID(nodeId)
+	assert(node ~= nil, "Node with id \"" .. nodeId .. "\" is nil. Is it correct id?")
 
-			local node = nodeArray[n]
+	-- pozadovany uzol musi byt typu Class
+	if node.meta.type:lower() == "class" and dataOut[node.data.name] == nil then
 
-			-- vytvorenie polozky zatial s prazdnymi udajmi
-			dataOut[node.data.name] = {["extends"]=nil, ["properties"]={}, ["methods"]={}}
-			
-			-- najdenie vsetkych metod a clenskych premennych pre uzol class
-			for i=1, #graph.edges do
+		-- vytvorenie polozky zatial s prazdnymi udajmi
+		dataOut[node.data.name] = {["nodeId"]=node.id, ["extends"]=nil, ["properties"]={}, ["methods"]={}}
 
-				if graph.edges[i].from[1] == node then
-					local nodeChild = graph.edges[i].to[1]
-					if nodeChild.meta.type == "Method" then
-						-- method with arguments
-						table.insert(dataOut[node.data.name]["methods"], {["name"]=nodeChild.data.name, ["args"]=nodeChild.data.args})
-					elseif nodeChild.meta.type == "Property" then
-						-- property
-						table.insert(dataOut[node.data.name]["properties"], nodeChild.data.name)
-					elseif nodeChild.meta.type == "Class" and graph.edges[i].label == "Extends" then
-						-- extends
-						dataOut[node.data.name]["extends"] = nodeChild.data.name
-						dataOut = getTableFromClassNode(graph, nodeChild.data.name, dataOut)
+		-- najdenie vsetkych metod a clenskych premennych pre uzol class
+		local edges_MethodsProperties = graph:findEdgesBySource(node.id, "contains")
+		for i=1, #edges_MethodsProperties do
+			local nodeChild = edges_MethodsProperties[i].to[1]
+			if nodeChild.meta.type:lower() == "method" then
+				-- method with arguments
+				local argsList = {}
+
+				local edges_argument = graph:findEdgesBySource(nodeChild.id, "has")
+				for j=1, #edges_argument do
+					local nodeArgument = edges_argument[j].to[1]
+					if nodeArgument.meta.type:lower() == "argument" then
+						table.insert(argsList, nodeArgument.data.name)
 					end
 				end
+				table.insert(dataOut[node.data.name]["methods"], {["name"]=nodeChild.data.name, ["args"]=argsList})
+			elseif nodeChild.meta.type:lower() == "property" then
+				-- property
+				table.insert(dataOut[node.data.name]["properties"], nodeChild.data.name)
+			end
+		end
+
+		-- najdenie vsetkych rodicovskych tried
+		local edges_Class = graph:findEdgesBySource(node.id, "extends")
+		for i=1, #edges_Class do
+			local nodeChild = edges_Class[i].to[1]
+			if nodeChild.meta.type:lower() == "class" then
+				-- extends
+				dataOut[node.data.name]["extends"] = {["name"]=nodeChild.data.name, ["nodeId"]=nodeChild.id}
+				dataOut = getTableFromClassNode(graph, nodeChild.id, dataOut)
 			end
 		end
 	end
@@ -59,29 +90,26 @@ local function getTableFromClassNode(graph, nodeName, dataOut)
 	return dataOut
 end
 
--- FIX: problem ak je subor s rovnakym nazvom v roznych adresaroch
---
--- @param graph - luaDB graph with class graph
--- @param nodeName - name of node for search
--- @param dataOut - optional. Using in recursion. dataOut is returned.
--- @return table with all collected info for class diagram from this nodeName
-local function getTableFromFileNode(graph, nodeName, outData)
+-------------------------------------
+-- @name getTableFromFileNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeId - [string] id of node for search
+-- @param dataOut - [table] optional. Using in recursion. dataOut is returned.
+-- @return [table] table with all collected info for class diagram from this nodeId
+local function getTableFromFileNode(graph, nodeId, outData)
 	local outData = outData or {}
 
-	local nodeArray = graph:findNodeByName(nodeName)
+	local node = graph:findNodeByID(nodeId)
+	assert(node ~= nil, "Node with id \"" .. nodeId .. "\" is nil. Is it correct id?")
 
-	for n=1, #nodeArray do
-		if nodeArray[n].meta.type == "file" then
+	if node.meta.type:lower() == "file" then
 
-			local node = nodeArray[n]
-
-			for i=1, #graph.edges do
-				if graph.edges[i].from[1] == node then
-					local nodeChild = graph.edges[i].to[1]
-					if nodeChild.meta.type == "Class" and graph.edges[i].label == "Contains" then
-						outData = getTableFromClassNode(graph, nodeChild.data.name, outData)
-					end
-				end
+		local edges_class = graph:findEdgesBySource(node.id, "contains")
+		for i=1, #edges_class do
+			local nodeChild = edges_class[i].to[1]
+			if nodeChild.meta.type:lower() == "class" then
+				outData = getTableFromClassNode(graph, nodeChild.id, outData)
 			end
 		end
 	end
@@ -89,31 +117,28 @@ local function getTableFromFileNode(graph, nodeName, outData)
 	return outData
 end
 
--- FIX: problem ak je adresar s rovnakym nazvom v roznych adresaroch
---
--- @param graph - luaDB graph with class graph
--- @param nodeName - name of node for search
--- @param dataOut - optional. Using in recusive. dataOut is returned.
--- @return table with all collected info for class diagram from this nodeName
-local function getTableFromDirectoryNode(graph, nodeName, outData)
+-----------------------------
+-- @name getTableFromDirectoryNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeId - [string] id of node for search
+-- @param dataOut - [table] optional. Using in recusive. dataOut is returned.
+-- @return [table] table with all collected info for class diagram from this nodeId
+local function getTableFromDirectoryNode(graph, nodeId, outData)
 	local outData = outData or {}
 
-	local nodeArray = graph:findNodeByName(nodeName)
+	local node = graph:findNodeByID(nodeId)
+	assert(node ~= nil, "Node with id \"" .. tostring(nodeId) .. "\" is nil. Is it correct id?")
 
-	for n=1, #nodeArray do
-		if nodeArray[n].meta.type == "directory" then
+	if node.meta.type:lower() == "directory" then
 
-			local node = nodeArray[n]
-
-			for i=1, #graph.edges do
-				if graph.edges[i].from[1] == node then
-					local nodeChild = graph.edges[i].to[1]
-					if nodeChild.meta.type == "file" and graph.edges[i].label == "Subfile" then
-						outData = getTableFromFileNode(graph, nodeChild.data.name, outData)
-					elseif nodeChild.meta.type == "directory" and graph.edges[i].label == "Subfile" then
-						outData = getTableFromDirectoryNode(graph, nodeChild.data.name, outData)
-					end
-				end
+		local edges_subfile = graph:findEdgesBySource(node.id, "contains")
+		for i=1, #edges_subfile do
+			local nodeChild = edges_subfile[i].to[1]
+			if nodeChild.meta.type:lower() == "file" then
+				outData = getTableFromFileNode(graph, nodeChild.id, outData)
+			elseif nodeChild.meta.type:lower() == "directory" then
+				outData = getTableFromDirectoryNode(graph, nodeChild.id, outData)
 			end
 		end
 	end
@@ -121,29 +146,30 @@ local function getTableFromDirectoryNode(graph, nodeName, outData)
 	return outData
 end
 
--- @param graph - luaDB graph with class graph
--- @param nodeName - name of node for search
--- @param dataOut - optional. Using in recursion. dataOut is returned.
--- @return table with all collected info for class diagram from this nodeName
-local function getTableFromProjectNode(graph, nodeName, outData)
+--------------------------
+-- Function return all needed data from project node. It means that all 
+-- data from file, directory and class nodes are collected.
+-- @name getTableFromProjectNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeId - [string] id of node for search
+-- @param dataOut - [table] optional. Using in recursion. dataOut is returned.
+-- @return [table] table with all collected info for class diagram from this nodeId
+local function getTableFromProjectNode(graph, nodeId, outData)
 	local outData = outData or {}
 
-	local nodeArray = graph:findNodeByName(nodeName)
+	local node = graph:findNodeByID(nodeId)
+	assert(node ~= nil, "Node with id \"" .. nodeId .. "\" is nil. Is it correct id?")
 
-	for n=1, #nodeArray do
-		if nodeArray[n].meta.type == "Project" then
+	if node.meta.type:lower() == "project" then
 
-			local node = nodeArray[n]
-
-			for i=1, #graph.edges do
-				if graph.edges[i].from[1] == node then
-					local nodeChild = graph.edges[i].to[1]
-					if nodeChild.meta.type == "file" and graph.edges[i].label == "Contains" then
-						outData = getTableFromFileNode(graph, nodeChild.data.name, outData)
-					elseif nodeChild.meta.type == "directory" and graph.edges[i].label == "Contains" then
-						outData = getTableFromDirectoryNode(graph, nodeChild.data.name, outData)
-					end
-				end
+		local edges_fileDir = graph:findEdgesBySource(node.id, "contains")
+		for i=1, #edges_fileDir do
+			local nodeChild = edges_fileDir[i].to[1]
+			if nodeChild.meta.type:lower() == "file" then
+				outData = getTableFromFileNode(graph, nodeChild.id, outData)
+			elseif nodeChild.meta.type:lower() == "directory" then
+				outData = getTableFromDirectoryNode(graph, nodeChild.id, outData)
 			end
 		end
 	end
@@ -153,112 +179,127 @@ end
 
 
 
----------------------------------
--- main functions to get image from node various type (class node, file node, directory node and project node)
----------------------------------
---
---
+--------------------
+-- Main functions to get plantuml template from node various type (class node, file node, directory node and project node)
+-- @name getPlantUmlFromNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeId - [string] id of node from which is needed image with class diagram
+-- @return [string] Text with uml class diagram for plantUML
+local function getPlantUmlFromNode(graph, nodeId)
+	assert(graph ~= nil and type(graph) == "table" and graph.nodes ~= nil, "Problem with graph. Is it luadb graph?")
+	local node = graph:findNodeByID(nodeId)
+	assert(node ~= nil, 'Node with id "' .. nodeId .. '" is nil. Is it correct id?')
 
-
-
---[[
-plantuml template:
-
-	@startuml
-	class [name] {
-		+[property]
-		+[method]([args])
-	}
-	[extends] <|-- [name]
-	@enduml
-
-]]
--- @param graph - luaDB graph with class graph
--- @param nodeName - name of node from which is needed image with class diagram
--- @return Text with uml class diagram for plantUML
-local function getPlantUmlFromNode(graph, nodeName)
-	local nodeArray = graph:findNodeByName(nodeName)
-
-	if nodeArray == nil or nodeArray[1] == nil then
-		return "--@startuml\n@enduml"
+	if node == nil then
+		return "@startuml\n@enduml"
 	end
 
-	local strOut = "@startuml\n"
+	local dataOut = {}
+	table.insert(dataOut, "@startuml\n")
 
 	local data = nil
-	local node = nodeArray[1]
 
-	if node.meta.type == "Project" then
-		data = getTableFromProjectNode(graph, node.data.name)
-	elseif node.meta.type == "directory" then
-		data = getTableFromDirectoryNode(graph, node.data.name)
-	elseif node.meta.type == "file" then
-		data = getTableFromFileNode(graph, node.data.name)
-	elseif node.meta.type == "Class" then
-		data = getTableFromClassNode(graph, node.data.name)
+	assert((node.meta ~= nil and node.meta.type ~= nil) or (node.data ~= nil and node.data.type ~= nil), 
+		"Node has not defined type in meta.type or data.type. Is it correct luadb graph?")
+
+	local nodeType = nil
+	if node.meta ~= nil and node.meta.type ~= nil then
+		nodeType = node.meta.type
+	elseif node.data ~= nil and node.data.type ~= nil then
+		nodeType = node.data.type
+	end
+
+	if nodeType:lower() == "project" then
+		data = getTableFromProjectNode(graph, node.id)
+	elseif nodeType:lower() == "directory" then
+		data = getTableFromDirectoryNode(graph, node.id)
+	elseif nodeType:lower() == "file" then
+		data = getTableFromFileNode(graph, node.id)
+	elseif nodeType:lower() == "class" then
+		data = getTableFromClassNode(graph, node.id)
 	else
 		return "@startuml\n@enduml"
 	end
 
 	local strExtends = ""
 
+	--[[
+	plantuml template:
+
+		@startuml
+		class [name] {
+			+[property]
+			+[method]([args])
+		}
+		[extends] <|-- [name]
+		@enduml
+
+	]]
+
 	-- z nazbieranych dat sa vytvori text pre plantuml
 	for key, value in pairs(data) do
 		-- trieda
-		strOut = appendText(strOut, "class " .. key .. " {\n")
+		table.insert(dataOut, "class " .. key .. " {\n")
 		
 		-- properties
 		for i=1, #value["properties"] do
-			strOut = appendText(strOut, "\t+" .. value["properties"][i] .. "\n")
+			table.insert(dataOut, "\t+ " .. value["properties"][i] .. "\n")
 		end
 		
 		-- methods
 		for i=1, #value["methods"] do
-			strOut = appendText(strOut, "\t+" .. value["methods"][i]["name"] .. "(")
-			
+			table.insert(dataOut, "\t+ " .. value["methods"][i]["name"] .. "(")
+
 			-- arguments
 			for j=1, #value["methods"][i]["args"] do
 				if j == #value["methods"][i]["args"] then
-					strOut = appendText(strOut, value["methods"][i]["args"][j])
+					table.insert(dataOut, value["methods"][i]["args"][j])
 				else
-					strOut = appendText(strOut, value["methods"][i]["args"][j] .. ", ")
+					table.insert(dataOut, value["methods"][i]["args"][j] .. ", ")
 				end
 			end
-			strOut = appendText(strOut, ")\n")
+			table.insert(dataOut, ")\n")
 		end
-		
+
 		-- end of class block
-		strOut = appendText(strOut, "}\n")
+		table.insert(dataOut, "}\n")
 
 		-- extends
 		if value["extends"] ~= nil then
-			strExtends = appendText(strExtends, value["extends"] .. " <|-- " .. key .. "\n")
+			strExtends = strExtends .. value["extends"]["name"] .. " <|-- " .. key .. "\n"
 		end
 	end
 
-	strOut = appendText(strOut, "\n\n" .. strExtends .. "\n")
+	table.insert(dataOut, "\n\n" .. strExtends .. "\n")
 
-	strOut = appendText(strOut, "@enduml\n")
+	table.insert(dataOut, "@enduml\n")
 
-	return strOut
+	return table.concat(dataOut)
 end
 
--- @param graph - luaDB graph with class graph
--- @param nodeName - name of node from which is needed image with class diagram
--- @return Image of Class diagram from node nodeName in SVG format as text
-local function getImageFromNode(graph, nodeName)
-	local plant = getPlantUmlFromNode(graph, nodeName)
+----------------
+-- Main functions to get svg image from node various type (class node, file node, directory node and project node)
+-- @name getImageFromNode
+-- @author Matus Stefanik
+-- @param graph - [table] luaDB graph with class graph
+-- @param nodeId - [string] id of node from which is needed image with class diagram
+-- @param pathToPlantuml - [string] (optional) path to executable plantuml.jar for generating svg.
+-- @return [string] Image of Class diagram from node nodeId in SVG format as text
+local function getImageFromNode(graph, nodeId, pathToPlantuml)
+	local plant = getPlantUmlFromNode(graph, nodeId)
+	local pathToPlantuml = pathToPlantuml or "plantuml.jar"
 
 	-- vytvorenie docasneho suboru s plantUML textom
-	local file = io.open("_uml.txt", "w")
+	local file = assert(io.open("_uml.txt", "w"))
 	file:write(plant) 	-- zapis do txt suboru
 	file:close()
 
 	-- spustenie plantuml aplikacie s vytvorenym suborom na vstupe
-	os.execute("java -jar plantuml.jar -quiet -tsvg _uml.txt")
+	os.execute("java -jar " .. pathToPlantuml .. " -quiet -tsvg _uml.txt")
 
 	-- plantUML vytvori novy subor s obrazkom. Precita sa a ulozi sa text do premennej
-	file = io.open("_uml.svg", "r")
+	file = assert(io.open("_uml.svg", "r"))
 	local text = file:read("*all") 	-- precitanie svg
   	file:close()
   	
@@ -270,9 +311,163 @@ local function getImageFromNode(graph, nodeName)
   	return text
 end
 
+------------
+-- @name getJsonDataFromNode
+-- @author Matus Stefanik
+-- @param graph - [table] luadb graph from luameg with class nodes
+-- @param nodeId - [string] node id
+-- @return [string] [string] json data with node data and link data
+local function getJsonDataFromNode(graph, nodeId)
+	assert(graph ~= nil and type(graph) == "table" and graph.nodes ~= nil, "Problem with graph. Is it luadb graph?")
+	local node = graph:findNodeByID(nodeId)
+	assert(node ~= nil, 'Node is nil. Is it correct nodeId? ("' .. nodeId .. '")')
+
+	local outnode = {}
+	local outlink = {}
+	local templink = {}
+
+	if node == nil then
+		return "", ""
+	end
+
+	local data = nil
+
+	assert((node.meta ~= nil and node.meta.type ~= nil) or (node.data ~= nil and node.data.type ~= nil), 
+		"Node has not defined type in meta.type or data.type. Is it correct luadb graph?")
+
+	local nodeType = nil
+	if node.meta ~= nil and node.meta.type ~= nil then
+		nodeType = node.meta.type
+	elseif node.data ~= nil and node.data.type ~= nil then
+		nodeType = node.data.type
+	end
+
+	if nodeType:lower() == "project" then
+		data = getTableFromProjectNode(graph, node.id)
+	elseif nodeType:lower() == "directory" then
+		data = getTableFromDirectoryNode(graph, node.id)
+	elseif nodeType:lower() == "file" then
+		data = getTableFromFileNode(graph, node.id)
+	elseif nodeType:lower() == "class" then
+		data = getTableFromClassNode(graph, node.id)
+	else
+		return "", ""
+	end
+
+	--	data["Observer"]["nodeId"]
+	--	data["Observer"]["extends"]["name"]
+	--	data["Observer"]["extends"]["nodeId"]
+	--	data["Observer"]["properties"][i]
+	--	data["Observer"]["methods"][i]["name"]
+	--	data["Observer"]["methods"][i]["args"][i]
+
+	local counter = 1
+	local countClasses = tableSize(data)
+
+	for className, value in pairs(data) do
+		local nodeIdNum = string.match(value["nodeId"], "%d+")
+		table.insert(outnode, '{\n\tkey: ' .. nodeIdNum .. ',\n')
+		table.insert(outnode, '\tname: "' .. className .. '",\n')
+		table.insert(outnode, '\tproperties: [\n')
+
+		-- properties
+		for i=1, #value["properties"] do
+			local property = value["properties"][i]
+			table.insert(outnode, '\t\t{ name: "' .. property .. '", visibility: "public" ')
+
+			if i == #value["properties"] then
+				-- last
+				table.insert(outnode, '}\n')
+			else
+				table.insert(outnode, '},\n')
+			end
+		end
+
+		table.insert(outnode, '\t],\n')
+		table.insert(outnode, '\tmethods: [\n')
+		-- methods
+		for i=1, #value["methods"] do
+			local methodData = value["methods"][i]
+			local methodName = methodData["name"]
+
+			table.insert(outnode, '\t\t{ name: "' .. methodName .. '", visibility: "public", parameters: [ ')
+
+			-- arguments
+			for j=1, #methodData["args"] do
+				local argName = methodData["args"][j]
+				table.insert(outnode, ' { name: "' .. argName .. '" }')
+
+				if j ~= #methodData["args"] then
+					-- not last
+					table.insert(outnode, ', ')
+				end
+			end
+
+			if i == #value["methods"] then
+				-- last
+				table.insert(outnode, '] }\n')
+			else
+				table.insert(outnode, '] },\n')
+			end
+		end
+		table.insert(outnode, '\t]\n')
+
+		if counter == countClasses then
+			-- last
+			table.insert(outnode, '}\n')
+		else
+			table.insert(outnode, '},\n')
+		end
+
+		-- extends
+		if value["extends"] ~= nil then
+			local childId = value["extends"]["nodeId"]
+			local childIdNum = string.match(childId, "%d+")
+			table.insert(templink, {nodeIdNum, childIdNum})
+		end
+
+		counter = counter + 1
+	end
+
+	-- relationships
+	for i=1, #templink do
+		local nodeIdNum = templink[i][1]
+		local childIdNum = templink[i][2]
+
+		table.insert(outlink, '{ from: ' .. nodeIdNum .. ', to: ' .. childIdNum .. ', relationship: "generalization" } ')
+		if i == #templink then
+			-- last
+			table.insert(outlink, '\n')
+		else
+			table.insert(outlink, ',\n')
+		end
+	end
+
+	--[[
+	Ukazka:
+	outnode = [=[
+	      {
+	        key: 1,
+	        name: "Component",
+	        properties: [
+	          { name: "name", visibility: "public" }
+	        ],
+	        methods: [
+	          { name: "new", visibility: "public", parameters: [{ name: "title", name: "value" }] }
+	        ]
+	      } ]=]
+
+	outlink = [=[
+	      { from: 11, to: 1, relationship: "generalization" },
+	      { from: 12, to: 1, relationship: "generalization" }
+	      ]=]
+	]]
+	return table.concat(outnode), table.concat(outlink)
+end
 
 return {
 	getPlantUmlFromNode = getPlantUmlFromNode,
-	getImageFromNode = getImageFromNode
+	getImageFromNode = getImageFromNode,
+	getJsonDataFromNode = getJsonDataFromNode
 }
 

@@ -1,6 +1,6 @@
 -------------------------------------------------------
 -- Interface for luameg
--- @release 2017/03/16 Matúš Štefánik, Tomáš Žigo
+-- @release 2017/04/09 Matúš Štefánik, Tomáš Žigo
 -------------------------------------------------------
 
 local io, table, pairs, type, print, assert, tostring = io, table, pairs, type, print, assert, tostring
@@ -15,9 +15,12 @@ local AST_capt = require 'luameg.captures.AST'
 
 local filestree = require 'luadb.extraction.filestree'
 local hypergraph = require 'luadb.hypergraph'
+local moduleAstManager = require "luadb.manager.AST"
 
 local extractorClass = require 'luameg.extractors.extractorClass'
 local extractorSequence = require 'luameg.extractors.extractorSequence'
+
+local graphConvertor = require 'luameg.convertors.graphConvertors'
 
 
 
@@ -48,6 +51,7 @@ end
 -- Main function for source code analysis
 -- returns an AST
 -- @name processText
+-- @author Matus Stefanik
 -- @param code - [string] string containing the source code to be analyzed
 -- @return [table] ast for moonscript code
 local function processText(code)
@@ -61,6 +65,7 @@ end
 -- Main function for source code analysis from file
 -- returns an AST
 -- @name proccessFile
+-- @author Matus Stefanik
 -- @param filename - [string] file with source code
 -- @return [table] ast for moonscript
 local function processFile(filename)
@@ -74,16 +79,49 @@ end
 --------------------------------------
 -- Get class graph from ast (one file)
 -- @name getClassGraph
--- @param ast - [table] moonscript ast from luameg from which is extracted new graph or inserted new nodes and edges to graph
+-- @author Matus Stefanik
+-- @param astManager - [table] AST manager from luadb.managers.AST. Manager contains many AST with unique astId
+-- @param astId - [string] id of AST in astManager from which is extracted new graph or inserted new nodes and edges to graph
 -- @param graph - [table] optional. Graph which is filled.
 -- @return [table] graph with class nodes, methods, properties and arguments.
-local function getClassGraph(ast, graph)
+local function getClassGraph(astManager, astId, graph)
 	local graph = graph or hypergraph.graph.new()
+	assert(astManager ~= nil, "astManager is nil.")
 
-	return extractorClass.getGraph(ast, graph)
+	return extractorClass.getGraph(astManager, astId, graph)
+end
+
+-------------------------------
+-- Get complete graph from one file
+-- @name getGraphFile
+-- @author Matus Stefanik
+-- @param path - [string] path to file
+-- @param astManager - [table] (optional) AST manager from luadb.managers.AST. Manager contains many AST with unique astId.
+-- @return [table] graph with class graph and sequence graph and [table] AST for this file
+local function getGraphFile(path, astManager)
+	assert(path ~= nil, "Path is nil")
+	local ast = processFile(path)
+	assert(ast ~= nil, "Ast for file is nil. Does file exist?")
+
+	local astManager = astManager or moduleAstManager.new()
+
+	local astRoot, astId = astManager:findASTByPath(path)
+
+	if astRoot == nil then
+		astId = astManager:addAST(ast, path)
+		astRoot = ast
+	end
+
+	local graph = getClassGraph(astManager, astId, nil)
+
+	-- doplnenie graph o sekvencny graf
+	-- graph = addSequenceGraphIntoClassGraph(ast, graph)
+
+	return graph, ast
 end
 
 --------------------------------------
+<<<<<<< HEAD
 -- Adds subsequent method calls into already generated class graph. Based on this information
 -- we are able to construct UML sequence diagram.
 -- @name addSequenceGraphIntoClassGraph
@@ -97,10 +135,18 @@ local function addSequenceGraphIntoClassGraph(ast, graph)
 end
 
 --------------------------------------
+=======
+-- Get complete graph from directory
+>>>>>>> develop_stefanik
 -- @name getGraphProject
+-- @author Matus Stefanik
 -- @param dir - [string] Directory with moonscript project
--- @return [table] Return complete graph of project
-local function getGraphProject(dir)
+-- @param astManager - [table] (optional) AST manager from luadb.managers.AST. Manager contains many AST with unique astId.
+-- @return [table] Return complete graph of project and [table] ast manager with all processed AST
+local function getGraphProject(dir, astManager)
+	assert(dir ~= nil, "Directory path is nil")
+
+	local astManager = astManager or moduleAstManager.new()
 
 	-- vytvori sa graf so subormi a zlozkami
 	local graphProject = filestree.extract(dir)
@@ -109,9 +155,9 @@ local function getGraphProject(dir)
 	local projectNode = hypergraph.node.new()
 	projectNode.data.name = "Project " .. dir   -- TODO: vyriesit ziskanie nazvu projektu
 	projectNode.meta = projectNode.meta or {}
-	projectNode.meta.type = "Project"
+	projectNode.meta.type = "project"
 	local projectEdge = hypergraph.edge.new()
-	projectEdge.label = "Contains"
+	projectEdge.label = "contains"
 	projectEdge:setSource(projectNode)
 	projectEdge:setTarget(graphProject.nodes[1])
 	projectEdge:setAsOriented()
@@ -123,16 +169,23 @@ local function getGraphProject(dir)
 		local nodeFile = graphProject.nodes[i]
 
 		-- ak je dany uzol typu subor
-		if nodeFile.meta ~= nil and nodeFile.meta.type == "file" then
+		if nodeFile.meta ~= nil and nodeFile.meta.type:lower() == "file" then
 
 			-- ak je subor s koncovkou .moon
-			if nodeFile.data.name:lower():match("^.+(%..+)$"):lower() == ".moon" then
+			if nodeFile.data.name:lower():match("^.+(%..+)$") == ".moon" then
 
 				-- vytvorit AST z jedneho suboru a nasledne novy graf
 				local astFile = processFile(nodeFile.data.path)
+				local astId = astManager:addAST(astFile, nodeFile.data.path)
+
+				-- uzol suboru bude obsahovat koren AST stromu
+				nodeFile.data.astId = astId
+				nodeFile.data.astNodeId = astFile["nodeid"]
 
 				-- ziska sa graf s triedami pre jeden subor
-				local graphFileClass = getClassGraph(astFile)
+				local graphFileClass = getClassGraph(astManager, astId, nil)
+
+				-- TODO: doplnit class graf o sekvencny
 
 				graphFileClass = addSequenceGraphIntoClassGraph(astFile, graphFileClass)
 
@@ -141,9 +194,9 @@ local function getGraphProject(dir)
 					graphProject:addNode(graphFileClass.nodes[j])
 
 					-- vytvori sa hrana "subor obsahuje triedu"
-					if graphFileClass.nodes[j].meta.type == "Class" then
+					if graphFileClass.nodes[j].meta.type:lower() == "class" then
 						local newEdge = hypergraph.edge.new()
-						newEdge.label = "Contains"
+						newEdge.label = "contains"
 						newEdge:setSource(nodeFile)
 						newEdge:setTarget(graphFileClass.nodes[j])
 						newEdge:setAsOriented()
@@ -161,90 +214,17 @@ local function getGraphProject(dir)
 		end
 	end
 
-	return graphProject
+	return graphProject, astManager
 end
 
-local a_ = 0
-
---------------------------
--- Generator for unique IDs
--- @name inc
--- @return [number] unique id
-local function inc()
-	a_ = a_ + 1
-	return a_
-end
-
----------------------------------------
--- @name convertGraphToImportGraph
--- @param graph - [table] luaDB graph from luameg
--- @return [table] graph in import format for HyperLua Lua::LuaGraph. Graph is in format
---   [{type,id,label,params}] = {[{type,id,label,direction}]={type,id,label,params}, [{type,id,label,direction}]={type,id,label,params}} 
---   or simple: [edge]={[incidence]=[node],[incidence]=[node]}
-local function convertGraphToImportGraph(graph)
-	local newGraph = {}
-
-	local nodes = {}
-
-	if graph == nil or graph.nodes == nil then
-		return newGraph
-	end
-
-	-- nodes
-	for k, vNode in ipairs(graph.nodes) do
-		local newNode = {type="node", id=inc(), label=vNode.data.name, params={origid=vNode.id, name=vNode.data.name}}
-
-		-- ak je to root node
-		if newNode.id == 1 then 
-			newNode.params.root = true 
-		end
-
-		-- doplni type uzla bud z meta.type, alebo z data.type
-		if vNode.meta ~= nil and vNode.meta.type ~= nil then
-			newNode.params.type = vNode.meta.type
-		elseif vNode.data.type ~= nil then
-			newNode.params.type = vNode.data.type
-		end
-
-		-- pre uzly file a directory sa zoberu ich cesty 
-		if vNode.meta ~= nil and (vNode.meta.type:lower() == "file" or vNode.meta.type:lower() == "directory") then
-			newNode.params.path = vNode.data.path
-		end
-
-
-		-- sem doplnit pre dalsie uzly podla potreby
-
-
-		-- ulozenie uzla do zoznamu
-		nodes[vNode] = newNode		
-	end
-
-	-- edges
-	for k, vEdge in ipairs(graph.edges) do
-		local edge = {type="edge", id=inc(), label=vEdge.label, params={origid=vEdge.id, type=vEdge.label}}
-
-		-- incidencie
-		local incid1 = {type="edge_part", id=inc(), label=''}
-		local incid2 = {type="edge_part", id=inc(), label=''}
-
-		-- nastavit orientaciu hrany
-		if vEdge.orientation:lower() == "oriented" then
-			incid1.direction = "in"
-			incid2.direction = "out"
-		end
-
-		-- ulozenie uzlov a incidencii do zoznamu s hranou
-		newGraph[edge] = {[incid1]=nodes[vEdge.from[1]], [incid2]=nodes[vEdge.to[1]]}
-	end
-
-	return newGraph
-end
 
 return {
 	addSequenceGraphIntoClassGraph = addSequenceGraphIntoClassGraph,
 	processText = processText,
 	processFile = processFile,
 	getGraphProject = getGraphProject,
+	getGraphFile = getGraphFile,
 	getClassGraph = getClassGraph,
-	convertGraphToImportGraph = convertGraphToImportGraph
+	convertGraphToImportGraph = graphConvertor.convertGraphToImportGraph,
+	convertHypergraphToImportGraph = graphConvertor.convertHypergraphToImportGraph
 }
