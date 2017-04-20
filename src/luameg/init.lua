@@ -161,8 +161,8 @@ local function getGraphProject(dir, astManager)
 				local astId = astManager:addAST(astFile, nodeFile.data.path)
 
 				-- uzol suboru bude obsahovat koren AST stromu
-				nodeFile.data.astId = astId
-				nodeFile.data.astNodeId = astFile["nodeid"]
+				nodeFile.data.astID = astId
+				nodeFile.data.astNodeID = astFile["nodeid"]
 
 				-- ziska sa graf s triedami pre jeden subor
 				local graphFileClass = getClassGraph(astManager, astId, nil)

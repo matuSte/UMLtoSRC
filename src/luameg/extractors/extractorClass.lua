@@ -10,16 +10,16 @@ local luadb = require 'luadb.hypergraph'
 -- @author Matus Stefanik
 -- @param type - [string] type of node. Write to meta.type
 -- @param name - [string] name of node. Write to data.name
--- @param astId - [string] id of ast in astManager. Write to data.astId
--- @param astNodeId - [number] nodeid from AST tree. Write to data.astNodeId
+-- @param astId - [string] id of ast in astManager. Write to data.astID
+-- @param astNodeId - [number] nodeid from AST tree. Write to data.astNodeID
 -- @return [table] new luadb node
 local function createNode(type, name, astId, astNodeId)
 	local node = luadb.node.new()
 	node.meta = node.meta or {}
 	node.meta.type = type
 	node.data.name = name
-	node.data.astId = astId
-	node.data.astNodeId = astNodeId
+	node.data.astID = astId
+	node.data.astNodeID = astNodeId
 	return node
 end
 
