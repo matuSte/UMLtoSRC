@@ -27,9 +27,13 @@ end
 --	data["Observer"]["nodeId"]
 --	data["Observer"]["extends"]["name"]
 --	data["Observer"]["extends"]["nodeId"]
---	data["Observer"]["properties"][i]
+--	data["Observer"]["properties"][i]["name"]
+--	data["Observer"]["properties"][i]["nodeId"]
 --	data["Observer"]["methods"][i]["name"]
+--	data["Observer"]["methods"][i]["nodeId"]
 --	data["Observer"]["methods"][i]["args"][i]
+--	data["Observer"]["methods"][i]["args"][i]["name"]
+--	data["Observer"]["methods"][i]["args"][i]["nodeId"]
 --
 -- @name getTableFromCLassNode
 -- @author Matus Stefanik
@@ -65,13 +69,13 @@ local function getTableFromClassNode(graph, nodeId, dataOut)
 				for j=1, #edges_argument do
 					local nodeArgument = edges_argument[j].to[1]
 					if nodeArgument.meta.type:lower() == "argument" then
-						table.insert(argsList, nodeArgument.data.name)
+						table.insert(argsList, {["name"]=nodeArgument.data.name, ["nodeId"]=nodeArgument.id})
 					end
 				end
-				table.insert(dataOut[node.data.name]["methods"], {["name"]=nodeChild.data.name, ["args"]=argsList})
+				table.insert(dataOut[node.data.name]["methods"], {["name"]=nodeChild.data.name, ["nodeId"]=nodeChild.id, ["args"]=argsList})
 			elseif nodeChild.meta.type:lower() == "property" then
 				-- property
-				table.insert(dataOut[node.data.name]["properties"], nodeChild.data.name)
+				table.insert(dataOut[node.data.name]["properties"], {["name"]=nodeChild.data.name, ["nodeId"]=nodeChild.id})
 			end
 		end
 
@@ -244,7 +248,7 @@ local function getPlantUmlFromNode(graph, nodeId)
 		
 		-- properties
 		for i=1, #value["properties"] do
-			table.insert(dataOut, "\t+ " .. value["properties"][i] .. "\n")
+			table.insert(dataOut, "\t+ " .. value["properties"][i]["name"] .. "\n")
 		end
 		
 		-- methods
@@ -254,9 +258,9 @@ local function getPlantUmlFromNode(graph, nodeId)
 			-- arguments
 			for j=1, #value["methods"][i]["args"] do
 				if j == #value["methods"][i]["args"] then
-					table.insert(dataOut, value["methods"][i]["args"][j])
+					table.insert(dataOut, value["methods"][i]["args"][j]["name"])
 				else
-					table.insert(dataOut, value["methods"][i]["args"][j] .. ", ")
+					table.insert(dataOut, value["methods"][i]["args"][j]["name"] .. ", ")
 				end
 			end
 			table.insert(dataOut, ")\n")
@@ -357,9 +361,13 @@ local function getJsonDataFromNode(graph, nodeId)
 	--	data["Observer"]["nodeId"]
 	--	data["Observer"]["extends"]["name"]
 	--	data["Observer"]["extends"]["nodeId"]
-	--	data["Observer"]["properties"][i]
+	--	data["Observer"]["properties"][i]["name"]
+	--	data["Observer"]["properties"][i]["nodeId"]
 	--	data["Observer"]["methods"][i]["name"]
+	--	data["Observer"]["methods"][i]["nodeId"]
 	--	data["Observer"]["methods"][i]["args"][i]
+	--	data["Observer"]["methods"][i]["args"][i]["name"]
+	--	data["Observer"]["methods"][i]["args"][i]["nodeId"]
 
 	local counter = 1
 	local countClasses = tableSize(data)
@@ -373,7 +381,8 @@ local function getJsonDataFromNode(graph, nodeId)
 		-- properties
 		for i=1, #value["properties"] do
 			local property = value["properties"][i]
-			table.insert(outnode, '\t\t{ name: "' .. property .. '", visibility: "public" ')
+			local propertyNodeId = string.match(property["nodeId"], "%d+")
+			table.insert(outnode, '\t\t{ name: "' .. property["name"] .. '", visibility: "public", id: ' .. propertyNodeId .. ' ' )
 
 			if i == #value["properties"] then
 				-- last
@@ -389,13 +398,15 @@ local function getJsonDataFromNode(graph, nodeId)
 		for i=1, #value["methods"] do
 			local methodData = value["methods"][i]
 			local methodName = methodData["name"]
+			local methodNodeId = string.match(methodData["nodeId"], "%d+")
 
 			table.insert(outnode, '\t\t{ name: "' .. methodName .. '", visibility: "public", parameters: [ ')
 
 			-- arguments
 			for j=1, #methodData["args"] do
 				local argName = methodData["args"][j]
-				table.insert(outnode, ' { name: "' .. argName .. '" }')
+				local argNodeId = string.match(argName["nodeId"], "%d+")
+				table.insert(outnode, ' { name: "' .. argName["name"] .. '", id: ' .. argNodeId .. ' }')
 
 				if j ~= #methodData["args"] then
 					-- not last
@@ -405,9 +416,9 @@ local function getJsonDataFromNode(graph, nodeId)
 
 			if i == #value["methods"] then
 				-- last
-				table.insert(outnode, '] }\n')
+				table.insert(outnode, '], id: ' .. methodNodeId .. ' }\n')
 			else
-				table.insert(outnode, '] },\n')
+				table.insert(outnode, '], id: ' .. methodNodeId .. ' },\n')
 			end
 		end
 		table.insert(outnode, '\t]\n')
@@ -450,10 +461,10 @@ local function getJsonDataFromNode(graph, nodeId)
 	        key: 1,
 	        name: "Component",
 	        properties: [
-	          { name: "name", visibility: "public" }
+	          { name: "name", visibility: "public", id: 8 }
 	        ],
 	        methods: [
-	          { name: "new", visibility: "public", parameters: [{ name: "title", name: "value" }] }
+	          { name: "new", visibility: "public", parameters: [{ name: "title", id: 15}, { name: "value", id: 16 }], id: 9 }
 	        ]
 	      } ]=]
 
