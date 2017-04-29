@@ -1,6 +1,6 @@
 -----------------
 -- Submodule for extracting class graph from AST
--- @release 09.04.2017 Matúš Štefánik
+-- @release 29.04.2017 Matúš Štefánik
 -----------------
 
 local luadb = require 'luadb.hypergraph'
@@ -10,15 +10,17 @@ local luadb = require 'luadb.hypergraph'
 -- @author Matus Stefanik
 -- @param type - [string] type of node. Write to meta.type
 -- @param name - [string] name of node. Write to data.name
--- @param astId - [string] id of ast in astManager. Write to data.astID
 -- @param astNodeId - [number] nodeid from AST tree. Write to data.astNodeID
+-- @param refToAstText - [table] This table contains ids to ast nodes where is same text as in this node. 
+--           It is used in changing text of this node. Then is replace text on all nodes from this table.
 -- @return [table] new luadb node
-local function createNode(type, name, astId, astNodeId)
+local function createNode(type, name, astNodeId, refToAstText)
 	local node = luadb.node.new()
 	node.meta = node.meta or {}
 	node.meta.type = type
 	node.data.name = name
-	node.data.astID = astId
+	node.data.refToAstText = refToAstText
+	--node.data.astID = astId  -- nech sa astID doplni mimo tohto submodulu
 	node.data.astNodeID = astNodeId
 	return node
 end
@@ -70,10 +72,114 @@ local function getChildNode(ast, neededValue, inKey, maxDepth, dataOut)
 	for i=1, #ast["data"] do
 		local newDepth = maxDepth
 		if maxDepth ~= nil then
-            newDepth = maxDepth-1
-        end
+			newDepth = maxDepth-1
+		end
 		getChildNode(ast["data"][i], neededValue, inKey, newDepth, dataOut)
 	end
+
+	return dataOut
+end
+
+
+--------
+-- Vrati vsetky ast uzly ktore splnuju zadanu cestu 'path'. Specialny symbol '*' znamena lubovolny nazov uzlu. 
+-- Priklad path:
+--    { "*", "ClassLine", "KeyValueList", "KeyValue", "KeyName" }
+--    { "*", "ClassDecl", "Statement", "*", "Value", "*", "Name" }
+--    { "*", "ClassDecl", "*" ,"Name"}   -> zoberie napr. ClassDecl->Statement->Exp->ExpList->Name ale aj ClassDecl->ClassLine->Value->Name
+--    { "*" } -> vrati vsetky uzly z AST
+--    { "*", "ClassDecl" } -> vrati vsetky ClassDecl uzly
+--    { "*", "ClassDecl", "*"} -> vrati vsetky uzly pod ClassDecl -> cele podstromy
+-- @name getAstNodesByPath
+-- @author Matus Stefanik
+-- @param ast - [table] ast tree or subtree from luameg. Nodes must have ["data"] as list of childrens.
+-- @param path - [table] path of needed types (or 'inKey'). Path support special character '*' for all
+--         types. Examples: {"*", "ClassDecl"} return all ClassDecl nodes.
+-- @param inKey - [string] (optional) default is "key". What parameter is comparing with path.
+-- @param maxDepth - [number] (optional) max depth to search. Default is nil as infinite.
+-- @return [table] All ast nodes whose are in path.
+local function getAstNodesByPath(ast, path, inKey, maxDepth)
+	local dataOut = {}
+	local index = 1
+	local maxDepth = maxDepth or nil
+	local inKey = inKey or "key"
+
+	if maxDepth ~= nil and maxDepth <= 0 then
+		return dataOut
+	end
+
+	if ast == nil then
+		return dataOut
+	end
+
+	if path == nil or #path == 0 then
+		return dataOut
+	end
+
+	local function getNode(ast, path, inKey, maxDepth, index, dataOut, flagAny)
+		local dataOut = dataOut or {}
+		local index = index or 1
+		local lastIndex = #path  
+		local flagAny = flagAny or false
+		assert(type(flagAny) == "boolean")
+
+		if path[index] == "*" then
+			flagAny = true
+		end
+
+		if maxDepth ~= nil and maxDepth <= 0 then
+			return dataOut
+		end
+		if ast == nil then
+			return dataOut
+		end
+
+		-- last element
+		if index >= lastIndex and (tostring(ast[inKey]) == path[index] or flagAny) then
+			table.insert(dataOut, ast)
+			
+			if flagAny == "*" then
+				for i=1, #ast["data"] do
+					local val = tostring(ast["data"][i][inKey])
+					local newDepth = maxDepth
+					if maxDepth ~= nil then
+						newDepth = maxDepth-1
+					end
+					getNode(ast["data"][i], path, inKey, newDepth, index+1, dataOut, flagAny)
+				end
+			end
+			return dataOut
+		end
+
+
+		if tostring(ast[inKey]) == path[index] or path[index] == "*" then
+
+			-- prehladavanie potomkov
+			for i=1, #ast["data"] do
+				local val = tostring(ast["data"][i][inKey])
+				local newDepth = maxDepth
+				if maxDepth ~= nil then
+					newDepth = maxDepth-1
+				end
+
+				if flagAny and path[index+1]==ast["data"][i][inKey] then
+					getNode(ast["data"][i], path, inKey, newDepth, index+1, dataOut, false)
+				end
+
+				if path[index] == "*" then
+					getNode(ast["data"][i], path, inKey, newDepth, index, dataOut, true)
+				else
+					getNode(ast["data"][i], path, inKey, newDepth, index+1, dataOut, false)
+				end
+
+			end
+
+		end
+
+		return dataOut
+	end
+
+	dataOut = getNode(ast, path, inKey, maxDepth, 1)
 
 	return dataOut
 end
@@ -138,7 +244,7 @@ local function getAllClasses(ast)
 		local setProps = {}
 
 		-- v classNameTree bude meno triedy (malo by byt len jedno v danom bloku/podstromu ClassDecl)
-		classNameTree = getChildNode(classDeclTree[i], "Name", "key")
+		classNameTree = getChildNode(classDeclTree[i], "Name", "key", 3)
 
 		-- v classLinesTree budu podstromy vsetkych metod a properties v danom bloku/podstromu ClassDecl
 		-- classLinesTree = getChildNode(classDeclTree[i], "KeyValue", "key")
@@ -205,7 +311,7 @@ local function getAllClasses(ast)
 						end
 						--end
 					end
-				else 			
+				else
 					-- ziskanie vsetkych properties
 					local propss = {}
 					propss = getChildNode(classLinesTree[j], "KeyName", "key")
@@ -220,11 +326,62 @@ local function getAllClasses(ast)
 					end
 				end
 			end
-			
-			
+
 			table.insert(out, {["astNode"]=classDeclTree[i], ["name"]=classNameTree[1], ["extends"]=extendedClassTree[1], ["properties"]=props, ["methods"]=methods})
 		end
 		
+	end
+
+	return out
+end
+
+--------
+-- @name getUsingClassName
+-- @author Matus Stefanik
+-- @param ast - [table] ast tree from luameg module
+-- @param className - [string] name of class to find using in ast
+-- @return [table] table with ast node where it is used className. Finding assign and extends in ast.
+local function getUsingClassName(ast, className)
+	-- nazvy tried pri priradeni a pri extend
+	local out = {}
+
+	-- // nazov triedy -> Line, Statement, Assign, ExpListLow, Exp, Value, ChainValue, Chain, Callable, Name 
+	-- // argumenty do konstruktora -> Line, Statement, Assign, ExpListLow, Exp, Value, ChainValue, Chain, ChainItems, ... argumenty
+	-- // ClassDecl, ak obsahuje EXTENDS tak potom v Exp, Value, ChainValue, Callable, Name
+
+	local path = {"*", "Callable", "Name"}
+	local usingClassName = getAstNodesByPath(ast, path, "key", nil)
+	for k, v in pairs(usingClassName) do
+		if v.text == className then
+			table.insert(out, v)
+		end
+	end
+
+	return out
+end
+
+--------------------------
+-- Podobne ako luadb findNodesByName, vyhlada vsetky uzly zo zoznamov 'nodes' a 'oldNodes' s menom 'name'
+-- @name findNodesByName
+-- @author Matus Stefanik
+-- @param nodes - [table] list of nodes
+-- @param name - [string] name of needed node
+-- @param oldNodes - [table] (optional) list of nodes
+-- @return [table] all nodes with needed 'name' from 'nodes' and 'oldNodes'
+local function findNodesByName(nodes, name, oldNodes)
+	local out = {}
+
+	if oldNodes ~= nil then
+		for k, node in pairs(oldNodes) do
+			if node.data ~= nil and node.data.name == name then
+				table.insert(out, node)
+			end
+		end
+	end
+	for k, node in pairs(nodes) do
+		if node.data ~= nil and node.data.name == name then
+			table.insert(out, node)
+		end
 	end
 
 	return out
@@ -234,15 +391,18 @@ end
 -- Return all nodes and edges as graph from this AST
 -- @name getGraph
 -- @author Matus Stefanik
--- @param astManager - [table] AST manager from luadb.managers.AST. Manager contains many AST with unique astId.
--- @param astId - [table] ast id from ast manager
--- @param graph - [table] (optional) New nodes and edges insert to this graph.
--- @return [table] graph (created with LuaDB.hypergraph) with nodes and edges needed for class diagram from ast
-local function getGraph(astManager, astId, graph)
-	local graph = graph or luadb.graph.new()
-	assert(astManager ~= nil, "astManager is nil.")
-	local ast = astManager:findASTByID(astId)
-	assert(ast ~= nil, 'AST is nil. Exist ast with astId:"' .. astId .. '" in astManager?')
+-- @param ast - [table] AST from luameg
+-- @param nodes - [table] (optional)
+-- @return [table] list of all luadb nodes and luadb edges for luadb graph
+  -- @param astManager - [table] AST manager from luadb.managers.AST. Manager contains many AST with unique astId.
+  -- @param astId - [table] ast id from ast manager
+  -- @param graph - [table] (optional) New nodes and edges insert to this graph.
+  -- @return [table] graph (created with LuaDB.hypergraph) with nodes and edges needed for class diagram from ast
+local function getGraph(ast, nodes)
+	assert(ast ~= nil, 'AST is nil.')
+
+	local nodes = nodes or {}
+	local out = {["nodes"]={}, ["edges"]={}}
 
 	-- pomocna tabulka s potrebnymi udajmi pre vytvorenie grafu tried
 	local classes = getAllClasses(ast)
@@ -251,32 +411,50 @@ local function getGraph(astManager, astId, graph)
 		local className = classes[i]["name"]["text"]
 
 		-- vytvori sa novy uzol s triedou alebo ak uz existuje, tak sa k nemu pripoja nove hrany
-		local nodeClass = graph:findNodesByName(className)
+		local nodeClass = findNodesByName(out.nodes, className, nodes)
 		if nodeClass == nil or #nodeClass == 0 then
 			local nodeClassAstNodeId = classes[i]["astNode"]["nodeid"]
-			nodeClass = createNode("class", className, astId, nodeClassAstNodeId)
+			
+			-- ulozenie informacii o pouzivani tejto triedy -> ulozenie id k ast uzlom
+			local using = getUsingClassName(ast, className)
+			local refToAstText = {}
+			table.insert(refToAstText, classes[i]["name"]["nodeid"])
+			for k,v in pairs(using) do
+				table.insert(refToAstText, v.nodeid)
+			end
 
-			graph:addNode(nodeClass)
+			nodeClass = createNode("class", className, nodeClassAstNodeId, refToAstText)
+
+			table.insert(out.nodes, nodeClass)
 		else
 			nodeClass = nodeClass[1]	-- zoberiem len prvy vyskyt (nemalo by byt viacej tried s rovnakym nazvom)
 		end
 		
 		-- extends
 		if classes[i]["extends"] ~= nil then
-			local nodeExtended = graph:findNodesByName(classes[i]["extends"]["text"]) 
+			local nodeExtended = findNodesByName(out.nodes, classes[i]["extends"]["text"], nodes)
 			if #nodeExtended == 0 then
 
 				local nodeExtendedName = classes[i]["extends"]["text"]
-				local nodeExtendedAstNodeId = classes[i]["extends"]["nodeid"]
-				nodeExtended = createNode("class", nodeExtendedName, astId, nodeExtendedAstNodeId)
-				graph:addNode(nodeExtended)
+				local nodeExtendedAstNodeId = classes[i]["extends"]["nodeid"] -- FIX: nodeid of ast node contain Name node and not ClassDecl node
+
+				-- ulozenie informacii o pouzivani tejto triedy -> ulozenie id k ast uzlom
+				local using = getUsingClassName(ast, className)
+				local refToAstText = {}
+				table.insert(refToAstText, classes[i]["extends"]["nodeid"])
+				for k,v in pairs(using) do
+					table.insert(refToAstText, v.nodeid)
+				end
+				
+				nodeExtended = createNode("class", nodeExtendedName, nodeExtendedAstNodeId, refToAstText)
+				table.insert(out.nodes, nodeExtended)
 			else 
 				nodeExtended = nodeExtended[1]		-- zoberiem len prvy vyskyt
 			end
 
 			local edge = createEdge("extends", nodeClass, nodeExtended, true)
 
-			graph:addEdge(edge)
+			table.insert(out.edges, edge)
 		end
 		
 		-- methods
@@ -284,25 +462,25 @@ local function getGraph(astManager, astId, graph)
 
 			local nodeMethodName = classes[i]["methods"][j]["name"]["text"]
 			local nodeMethodAstNodeId = classes[i]["methods"][j]["astNode"]["nodeid"]
-			local nodeMethod = createNode("method", nodeMethodName, astId, nodeMethodAstNodeId)
+			local nodeMethod = createNode("method", nodeMethodName, nodeMethodAstNodeId, nil)
 			
 			-- arguments
 			for k=1, #classes[i]["methods"][j]["args"] do
 
 				local nodeArgName = classes[i]["methods"][j]["args"][k]["text"]
 				local nodeArgAstNodeId = classes[i]["methods"][j]["args"][k]["nodeid"]
-				local nodeArg = createNode("argument", nodeArgName, astId, nodeArgAstNodeId)
+				local nodeArg = createNode("argument", nodeArgName, nodeArgAstNodeId, nil)
 
 				local edgeArg = createEdge("has", nodeMethod, nodeArg, true)
 
-				graph:addNode(nodeArg)
-				graph:addEdge(edgeArg)
+				table.insert(out.nodes, nodeArg)
+				table.insert(out.edges, edgeArg)
 			end
 
 			local edge = createEdge("contains", nodeClass, nodeMethod, true)
 
-			graph:addEdge(edge)
-			graph:addNode(nodeMethod)
+			table.insert(out.edges, edge)
+			table.insert(out.nodes, nodeMethod)
 		end
 
 		-- properties
@@ -310,18 +488,18 @@ local function getGraph(astManager, astId, graph)
 
 			local nodePropName = classes[i]["properties"][j]["text"]:gsub('%W', '')
 			local nodePropAstNodeId = classes[i]["properties"][j]["nodeid"]
-			local nodeProp = createNode("property", nodePropName, astId, nodePropAstNodeId)
+			local nodeProp = createNode("property", nodePropName, nodePropAstNodeId, nil)
 
 			local edge = createEdge("contains", nodeClass, nodeProp, true)
 
-			graph:addEdge(edge)
-			graph:addNode(nodeProp)
+			table.insert(out.edges, edge)
+			table.insert(out.nodes, nodeProp)
 		end
 
 		
 	end
 
-	return graph
+	return out
 end
 
 return {

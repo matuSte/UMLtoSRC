@@ -312,16 +312,20 @@ local function check(input)
   return false            -- ak result obsahuje nieco ine (tabulka, retazec)
 end
 
--- @return Vrati okrem true false aj dalsie informacie
+----------
+-- @name check_special
+-- @author Matus Stefanik
+-- @param input - [string] moonscript source code to parse
+-- @return [boolean] [string] [string] State of parsable current input, parsed source code and unparsed source code.
 local function check_special(input)
   local builder = m.P(rules)
   local result = builder:match(input)
   
   if (type(result) == "number") then
     if (result == #input + 1) then 
-      return true, result
+      return true, input:sub(1, result-1)
     end
-    return false, input:sub(1, result), input:sub(result)
+    return false, input:sub(1, result-1), input:sub(result)
   end
   return false, nil, result
 end
