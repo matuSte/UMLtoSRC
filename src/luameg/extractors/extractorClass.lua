@@ -11,14 +11,16 @@ local luadb = require 'luadb.hypergraph'
 -- @param type - [string] type of node. Write to meta.type
 -- @param name - [string] name of node. Write to data.name
 -- @param astNodeId - [number] nodeid from AST tree. Write to data.astNodeID
+-- @param visibility - [string] visibility od node. 'public' or 'private'.
 -- @param refToAstText - [table] This table contains ids to ast nodes where is same text as in this node. 
 --           It is used in changing text of this node. Then is replace text on all nodes from this table.
 -- @return [table] new luadb node
-local function createNode(type, name, astNodeId, refToAstText)
+local function createNode(type, name, astNodeId, visibility, refToAstText)
 	local node = luadb.node.new()
 	node.meta = node.meta or {}
 	node.meta.type = type
 	node.data.name = name
+	node.data.visibility = visibility  -- public or private
 	node.data.refToAstText = refToAstText
 	--node.data.astID = astId  -- nech sa astID doplni mimo tohto submodulu
 	node.data.astNodeID = astNodeId
@@ -217,12 +219,13 @@ local function isValueInTree(ast, key, value)
 end
 
 ---------------------
--- @name getAllClasses
+-- @deprecated
+-- @name getAllClassesOld
 -- @author Matus Stefanik
 -- @param ast - [table] ast from luameg (moonscript)
 -- @return [table] list of nodes of all classes from AST with all methods and properties
 --    { ["astNode"]=astNodeWithClass, ["name"]=astNode, ["extends"]=astNode, ["properties"]={astNode}, ["methods"]={["astNode"]=classLine, ["name"]=astNode, ["args"]={astNode} } }
-local function getAllClasses(ast) 
+local function getAllClassesOld(ast) 
 	local out = {["astNode"]=nil, ["name"]=nil, ["extends"]=nil, ["properties"]=nil, ["methods"]=nil}
 
 	if ast == nil then
@@ -335,73 +338,22 @@ local function getAllClasses(ast)
 	return out
 end
 
---------
--- @name getUsingClassName
--- @author Matus Stefanik
--- @param ast - [table] ast tree from luameg module
--- @param className - [string] name of class to find using in ast
--- @return [table] table with ast node where it is used className. Finding assign and extends in ast.
-local function getUsingClassName(ast, className)
-	-- nazvy tried pri priradeni a pri extend
-	local out = {}
-
-	-- // nazov triedy -> Line, Statement, Assign, ExpListLow, Exp, Value, ChainValue, Chain, Callable, Name 
-	-- // argumenty do konstruktora -> Line, Statement, Assign, ExpListLow, Exp, Value, ChainValue, Chain, ChainItems, ... argumenty
-	-- // ClassDecl, ak obsahuje EXTENDS tak potom v Exp, Value, ChainValue, Callable, Name
-
-	local path = {"*", "Callable", "Name"}
-	local usingClassName = getAstNodesByPath(ast, path, "key", nil)
-	for k, v in pairs(usingClassName) do
-		if v.text == className then
-			table.insert(out, v)
-		end
-	end
-
-	return out
-end
-
---------------------------
--- Podobne ako luadb findNodesByName, vyhlada vsetky uzly zo zoznamov 'nodes' a 'oldNodes' s menom 'name'
--- @name findNodesByName
--- @author Matus Stefanik
--- @param nodes - [table] list of nodes
--- @param name - [string] name of needed node
--- @param oldNodes - [table] (optional) list of nodes
--- @return [table] all nodes with needed 'name' from 'nodes' and 'oldNodes'
-local function findNodesByName(nodes, name, oldNodes)
-	local out = {}
-
-	if oldNodes ~= nil then
-		for k, node in pairs(oldNodes) do
-			if node.data ~= nil and node.data.name == name then
-				table.insert(out, node)
-			end
-		end
-	end
-	for k, node in pairs(nodes) do
-		if node.data ~= nil and node.data.name == name then
-			table.insert(out, node)
-		end
-	end
-
-	return out
-end
-
 --------------------
+-- @deprecated
 -- Return all nodes and edges as graph from this AST
--- @name getGraph
+-- @name getGraphOld
 -- @author Matus Stefanik
 -- @param ast - [table] AST from luameg
 -- @param nodes - [table] (optional) existing nodes
 -- @return [table] list of all luadb nodes and luadb edges for luadb graph
-local function getGraph(ast, nodes)
+local function getGraphOld(ast, nodes)
 	assert(ast ~= nil, 'AST is nil.')
 
 	local nodes = nodes or {}
 	local out = {["nodes"]={}, ["edges"]={}}
 
 	-- pomocna tabulka s potrebnymi udajmi pre vytvorenie grafu tried
-	local classes = getAllClasses(ast)
+	local classes = getAllClassesOld(ast)
 
 	for i=1, #classes do
 		local className = classes[i]["name"]["text"]
@@ -485,6 +437,319 @@ local function getGraph(ast, nodes)
 			local nodePropName = classes[i]["properties"][j]["text"]:gsub('%W', '')
 			local nodePropAstNodeId = classes[i]["properties"][j]["nodeid"]
 			local nodeProp = createNode("property", nodePropName, nodePropAstNodeId, nil)
+
+			local edge = createEdge("contains", nodeClass, nodeProp, true)
+
+			table.insert(out.edges, edge)
+			table.insert(out.nodes, nodeProp)
+		end
+
+		
+	end
+
+	return out
+end
+
+
+---------------------
+-- @name getAllClasses
+-- @author Matus Stefanik
+-- @param ast - [table] ast from luameg (moonscript)
+-- @return [table] list of nodes of all classes from AST with all methods and properties
+--    Table looks like:
+--		class
+--		  name
+--		  astNodeID
+--		  nameAstNodeID
+--		  extends
+--		    name
+--		  methods
+--		    name
+--		    astNodeID
+--		    visibility
+--		    args
+--		      name
+--		      astNodeID
+--		  properties
+--		    name
+--		    astNodeID
+--		    visibility
+local function getAllClasses(ast)
+	local out = {}
+	
+	if ast == nil then
+		return out
+	end
+
+	local listClassDecl = getAstNodesByPath(ast, {"*", "ClassDecl"}, "key", 14)
+
+	for _, classDecl in pairs(listClassDecl) do
+		local dataItem = {}
+		dataItem.astNodeID = classDecl.nodeid
+
+		-- ziskanie nazvu triedy
+		local listClassName = getAstNodesByPath(classDecl, {"ClassDecl", "Assignable", "Name"})
+		dataItem.name = listClassName[1].text
+		--print("===ClassName: " .. dataItem.name)
+		dataItem.nameAstNodeID = listClassName[1].nodeid
+
+		local isExtends = getAstNodesByPath(classDecl, {"ClassDecl", "EXTENDS"})
+		if #isExtends > 0 then
+			-- trieda obsahuje extends
+			local listExtends = getAstNodesByPath(classDecl, {"ClassDecl", "Exp", "Value", "*", "Name"})
+			dataItem.extends = {["name"]=listExtends[1].text}
+			--print('Extends: "' .. listExtends[1].text .. '"')
+		end
+
+		local listClassLine = getAstNodesByPath(classDecl, {"ClassDecl", "ClassBlock", "ClassLine"}, "key", nil)
+		
+		dataItem.methods = {}
+		dataItem.properties = {}
+		local setProperties = {}
+
+		for _, classLine in pairs(listClassLine) do
+			-- ziskanie verejnych metod a properties
+			local listPublic = getAstNodesByPath(classLine, {"ClassLine", "KeyValueList"})
+
+			for k, v in pairs(listPublic) do
+				-- rozlisenie metod od properties
+				local result = getAstNodesByPath(v, {"*", "FunLit"}, "key", nil)
+				if #result > 0 then
+					-- je to method
+					local name = getAstNodesByPath(v, {"*", "KeyName"}, "key", nil)
+
+					--print('Public method: "' .. tostring(name[1].text) .. '"')
+					--print(" astNodeId: " .. tostring(classLine.nodeid))
+
+
+					local dataItemMethodsArgs = {}
+					local listArgs = getAstNodesByPath(v, {"*", "FnArgDef", "Name"}, "key", nil)
+					for kk, vv in pairs(listArgs) do
+						--print(" Arg" .. kk .. ": " .. vv.text)
+						table.insert(dataItemMethodsArgs, {["name"]=vv.text, ["astNodeID"]=vv.nodeid})
+					end
+					table.insert(dataItem.methods, {["name"]=name[1].text, ["astNodeID"]=classLine.nodeid, ["visibility"]="public", ["args"]=dataItemMethodsArgs})
+				else
+					-- je to property
+					local name = getAstNodesByPath(v, {"*", "KeyName"}, "key", nil)
+					--print('Public property: "' .. tostring(name[1].text) .. '"')
+					--print(' astNodeId: ' .. tostring(classLine.nodeid))
+					if setProperties[name[1].text:gsub("@", "")] == nil then
+						setProperties[name[1].text:gsub("@", "")] = true
+						table.insert(dataItem.properties, {["name"]=name[1].text, ["astNodeID"]=classLine.nodeid, ["visibility"]="public"})
+					end
+				end
+			end
+
+			-- ziskanie sukromnych metod a properties
+			local listPrivate = getAstNodesByPath(classLine, {"ClassLine", "Statement"})
+			for k, v in pairs(listPrivate) do
+				local result = getAstNodesByPath(v, {"*", "FunLit", "Body"}, "key", nil)
+				if #result > 0 then
+					-- je to method
+					local name = getAstNodesByPath(v, {"*", "Name"}, "key", nil)
+					--print('Private method: "' .. tostring(name[1].text) .. '"')
+					--print(" astNodeId: " .. tostring(classLine.nodeid))
+
+					local dataItemMethodsArgs = {}
+
+					local listArgs = getAstNodesByPath(v, {"*", "FnArgDef", "Name"}, "key", nil)
+					for kk, vv in pairs(listArgs) do
+						--print(" Arg" .. kk .. ": " .. vv.text)
+						table.insert(dataItemMethodsArgs, {["name"]=vv.text, ["astNodeID"]=vv.nodeid})
+					end
+					table.insert(dataItem.methods, {["name"]=name[1].text, ["astNodeID"]=classLine.nodeid, ["visibility"]="private", ["args"]=dataItemMethodsArgs})
+				else
+					-- je to property
+					local name = getAstNodesByPath(v, {"*", "Name"}, "key", nil)
+					--print('Private property: "' .. tostring(name[1].text) .. '"')
+					--print(" astNodeId: " .. tostring(classLine.nodeid))
+					if setProperties[name[1].text:gsub("@", "")] == nil then
+						setProperties[name[1].text:gsub("@", "")] = true
+						table.insert(dataItem.properties, {["name"]=name[1].text, ["astNodeID"]=classLine.nodeid, ["visibility"]="private"})
+					end
+				end
+			end
+
+		end
+		
+		-- ziskanie verejnych properties so zavinacom
+		local listPublicZavinac = getAstNodesByPath(classDecl, {"ClassDecl", "ClassBlock", "ClassLine", "*", "Statement"})
+		for k, v in pairs(listPublicZavinac) do
+			local result = getAstNodesByPath(v, {"Statement", "Assign"}, "key")
+			if #result > 0 then
+				-- ak statement obsahuje assign
+				local result2 = getAstNodesByPath(v, {"*", "SelfName"}, "key")
+				if #result2 > 0 then
+					-- ak statement obsahuje assign a aj SelfName
+					--print('Public property: "' .. tostring(result2[1].text) .. '"')
+					--print(' astNodeId: ' .. v.nodeid)
+					if setProperties[result2[1].text:gsub("@", "")] == nil then 
+						setProperties[result2[1].text:gsub("@", "")] = true
+						table.insert(dataItem.properties, {["name"]=result2[1].text, ["astNodeID"]=v.nodeid, ["visibility"]="public"})
+					end
+				end
+			end
+		end
+
+		table.insert(out, dataItem)
+	end
+
+	return out
+end
+
+--------
+-- @name getUsingClassName
+-- @author Matus Stefanik
+-- @param ast - [table] ast tree from luameg module
+-- @param className - [string] name of class to find using in ast
+-- @return [table] table with ast node where it is used className. Finding assign and extends in ast.
+local function getUsingClassName(ast, className)
+	-- nazvy tried pri priradeni a pri extend
+	local out = {}
+
+	-- // nazov triedy -> Line, Statement, Assign, ExpListLow, Exp, Value, ChainValue, Chain, Callable, Name 
+	-- // argumenty do konstruktora -> Line, Statement, Assign, ExpListLow, Exp, Value, ChainValue, Chain, ChainItems, ... argumenty
+	-- // ClassDecl, ak obsahuje EXTENDS tak potom v Exp, Value, ChainValue, Callable, Name
+
+	local path = {"*", "Callable", "Name"}
+	local usingClassName = getAstNodesByPath(ast, path, "key", nil)
+	for k, v in pairs(usingClassName) do
+		if v.text == className then
+			table.insert(out, v)
+		end
+	end
+
+	return out
+end
+
+--------------------------
+-- Podobne ako luadb findNodesByName, vyhlada vsetky uzly zo zoznamov 'nodes' a 'oldNodes' s menom 'name'
+-- @name findNodesByName
+-- @author Matus Stefanik
+-- @param nodes - [table] list of nodes
+-- @param name - [string] name of needed node
+-- @param oldNodes - [table] (optional) list of nodes
+-- @return [table] all nodes with needed 'name' from 'nodes' and 'oldNodes'
+local function findNodesByName(nodes, name, oldNodes)
+	local out = {}
+
+	if oldNodes ~= nil then
+		for k, node in pairs(oldNodes) do
+			if node.data ~= nil and node.data.name == name then
+				table.insert(out, node)
+			end
+		end
+	end
+	for k, node in pairs(nodes) do
+		if node.data ~= nil and node.data.name == name then
+			table.insert(out, node)
+		end
+	end
+
+	return out
+end
+
+--------------------
+-- Return all nodes and edges as graph from this AST
+-- @name getGraph
+-- @author Matus Stefanik
+-- @param ast - [table] AST from luameg
+-- @param nodes - [table] (optional) existing nodes
+-- @return [table] list of all luadb nodes and luadb edges for luadb graph
+local function getGraph(ast, nodes)
+	assert(ast ~= nil, 'AST is nil.')
+
+	local nodes = nodes or {}
+	local out = {["nodes"]={}, ["edges"]={}}
+
+	-- pomocna tabulka s potrebnymi udajmi pre vytvorenie grafu tried
+	local classesData = getAllClasses(ast)
+
+	for k, classItem in pairs(classesData) do
+		local className = classItem["name"]
+
+		-- vytvori sa novy uzol s triedou alebo ak uz existuje, tak sa k nemu pripoja nove hrany
+		local nodeClass = findNodesByName(out.nodes, className, nodes)
+		if nodeClass == nil or #nodeClass == 0 then
+			local nodeClassAstNodeId = classItem["astNodeID"]
+			
+			-- ulozenie informacii o pouzivani tejto triedy -> ulozenie id k ast uzlom
+			local using = getUsingClassName(ast, className)
+			local refToAstText = {}
+			table.insert(refToAstText, classItem["nameAstNodeID"])
+			for k,v in pairs(using) do
+				table.insert(refToAstText, v.nodeid)
+			end
+
+			nodeClass = createNode("class", className, nodeClassAstNodeId, nil, refToAstText)
+
+			table.insert(out.nodes, nodeClass)
+		else
+			nodeClass = nodeClass[1]	-- zoberiem len prvy vyskyt (nemalo by byt viacej tried s rovnakym nazvom)
+		end
+		
+		-- extends
+		if classItem["extends"] ~= nil then
+			local nodeExtended = findNodesByName(out.nodes, classItem["extends"]["name"], nodes)
+			if #nodeExtended == 0 then
+				print("creating extendNode class !!!!!!!!!!!!!!!§")
+				local nodeExtendedName = classItem["extends"]["name"]
+				local nodeExtendedAstNodeId = 1 --classItem["extends"]["nodeid"] -- FIX: nodeid of ast node contain Name node and not ClassDecl node
+
+				-- ulozenie informacii o pouzivani tejto triedy -> ulozenie id k ast uzlom
+				local using = getUsingClassName(ast, className)
+				local refToAstText = {}
+				--table.insert(refToAstText, classes[i]["extends"]["nodeid"])
+				for k,v in pairs(using) do
+					table.insert(refToAstText, v.nodeid)
+				end
+				
+				nodeExtended = createNode("class", nodeExtendedName, nodeExtendedAstNodeId, nil, refToAstText)
+				table.insert(out.nodes, nodeExtended)
+			else 
+				nodeExtended = nodeExtended[1]		-- zoberiem len prvy vyskyt
+			end
+
+			local edge = createEdge("extends", nodeClass, nodeExtended, true)
+
+			table.insert(out.edges, edge)
+		end
+		
+		-- methods
+		for j=1, #classItem["methods"] do
+
+			local nodeMethodName = classItem["methods"][j]["name"]
+			local nodeMethodAstNodeId = classItem["methods"][j]["astNodeID"]
+			local nodeMethodVisibility = classItem["methods"][j]["visibility"]
+			local nodeMethod = createNode("method", nodeMethodName, nodeMethodAstNodeId, nodeMethodVisibility, nil)
+			
+			-- arguments
+			for k=1, #classItem["methods"][j]["args"] do
+
+				local nodeArgName = classItem["methods"][j]["args"][k]["name"]
+				local nodeArgAstNodeId = classItem["methods"][j]["args"][k]["astNodeID"]
+				local nodeArg = createNode("argument", nodeArgName, nodeArgAstNodeId, nil, nil)
+
+				local edgeArg = createEdge("has", nodeMethod, nodeArg, true)
+
+				table.insert(out.nodes, nodeArg)
+				table.insert(out.edges, edgeArg)
+			end
+
+			local edge = createEdge("contains", nodeClass, nodeMethod, true)
+
+			table.insert(out.edges, edge)
+			table.insert(out.nodes, nodeMethod)
+		end
+
+		-- properties
+		for j=1, #classItem["properties"] do
+
+			local nodePropName = classItem["properties"][j]["name"]:gsub('@', '')  --odstrani sa @ ak je
+			local nodePropAstNodeId = classItem["properties"][j]["astNodeID"]
+			local nodePropVisibility = classItem["properties"][j]["visibility"]
+			local nodeProp = createNode("property", nodePropName, nodePropAstNodeId, nodePropVisibility, nil)
 
 			local edge = createEdge("contains", nodeClass, nodeProp, true)
 
