@@ -29,10 +29,8 @@ end
 --	data["Observer"]["extends"]["nodeId"]
 --	data["Observer"]["properties"][i]["name"]
 --	data["Observer"]["properties"][i]["nodeId"]
---	data["Observer"]["properties"][i]["visibility"]
 --	data["Observer"]["methods"][i]["name"]
 --	data["Observer"]["methods"][i]["nodeId"]
---	data["Observer"]["methods"][i]["visibility"]
 --	data["Observer"]["methods"][i]["args"][i]
 --	data["Observer"]["methods"][i]["args"][i]["name"]
 --	data["Observer"]["methods"][i]["args"][i]["nodeId"]
@@ -74,10 +72,10 @@ local function getTableFromClassNode(graph, nodeId, dataOut)
 						table.insert(argsList, {["name"]=nodeArgument.data.name, ["nodeId"]=nodeArgument.id})
 					end
 				end
-				table.insert(dataOut[node.data.name]["methods"], {["name"]=nodeChild.data.name, ["nodeId"]=nodeChild.id, ["visibility"]=nodeChild.data.visibility, ["args"]=argsList})
+				table.insert(dataOut[node.data.name]["methods"], {["name"]=nodeChild.data.name, ["nodeId"]=nodeChild.id, ["args"]=argsList})
 			elseif nodeChild.meta.type:lower() == "property" then
 				-- property
-				table.insert(dataOut[node.data.name]["properties"], {["name"]=nodeChild.data.name, ["nodeId"]=nodeChild.id, ["visibility"]=nodeChild.data.visibility})
+				table.insert(dataOut[node.data.name]["properties"], {["name"]=nodeChild.data.name, ["nodeId"]=nodeChild.id})
 			end
 		end
 
@@ -250,22 +248,12 @@ local function getPlantUmlFromNode(graph, nodeId)
 		
 		-- properties
 		for i=1, #value["properties"] do
-			local vis = value["properties"][i]["visibility"]
-			if vis == "private" then
-				table.insert(dataOut, "\t- " .. value["properties"][i]["name"] .. "\n")
-			else
-				table.insert(dataOut, "\t+ " .. value["properties"][i]["name"] .. "\n")
-			end
+			table.insert(dataOut, "\t+ " .. value["properties"][i]["name"] .. "\n")
 		end
 		
 		-- methods
 		for i=1, #value["methods"] do
-			local vis = value["methods"][i]["visibility"]
-			if vis == "private" then
-				table.insert(dataOut, "\t- " .. value["methods"][i]["name"] .. "(")
-			else
-				table.insert(dataOut, "\t+ " .. value["methods"][i]["name"] .. "(")
-			end
+			table.insert(dataOut, "\t+ " .. value["methods"][i]["name"] .. "(")
 
 			-- arguments
 			for j=1, #value["methods"][i]["args"] do
@@ -394,13 +382,7 @@ local function getJsonDataFromNode(graph, nodeId)
 		for i=1, #value["properties"] do
 			local property = value["properties"][i]
 			local propertyNodeId = string.match(property["nodeId"], "%d+")
-
-			local vis = value["properties"][i]["visibility"]
-			if vis == "private" then
-				table.insert(outnode, '\t\t{ name: "' .. property["name"] .. '", visibility: "private", id: ' .. propertyNodeId .. ' ' )
-			else
-				table.insert(outnode, '\t\t{ name: "' .. property["name"] .. '", visibility: "public", id: ' .. propertyNodeId .. ' ' )
-			end
+			table.insert(outnode, '\t\t{ name: "' .. property["name"] .. '", visibility: "public", id: ' .. propertyNodeId .. ' ' )
 
 			if i == #value["properties"] then
 				-- last
@@ -418,12 +400,7 @@ local function getJsonDataFromNode(graph, nodeId)
 			local methodName = methodData["name"]
 			local methodNodeId = string.match(methodData["nodeId"], "%d+")
 
-			local vis = value["methods"][i]["visibility"]
-			if vis == "private" then
-				table.insert(outnode, '\t\t{ name: "' .. methodName .. '", visibility: "private", parameters: [ ')
-			else
-				table.insert(outnode, '\t\t{ name: "' .. methodName .. '", visibility: "public", parameters: [ ')
-			end
+			table.insert(outnode, '\t\t{ name: "' .. methodName .. '", visibility: "public", parameters: [ ')
 
 			-- arguments
 			for j=1, #methodData["args"] do

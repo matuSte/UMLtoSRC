@@ -204,7 +204,7 @@ local rules = {
     String = Space * m.V'DoubleString' + Space * m.V'SingleString' + m.V'LuaString',
     SingleString = util.simple_string("'"),
     DoubleString = util.simple_string('"', true),
-    LuaString = m.C(m.V'LuaStringOpen') * Break ^ -1 * ((1 - m.Cmt(m.C(m.V'LuaStringClose'), util.check_lua_string)) ^ 0) * m.V'LuaStringClose',
+    LuaString = m.V'LuaStringOpen' * Break ^ -1 * ((1 - m.Cmt((m.V'LuaStringClose'), util.check_lua_string)) ^ 0) * m.V'LuaStringClose',
   --LuaString = m.V'LuaStringOpen' * Break ^ -1 * m.C((1 - m.Cmt(m.C(m.V'LuaStringClose'), util.check_lua_string)) ^ 0) * m.V'LuaStringClose',
     LuaStringOpen = util.sym("[") * m.P("=") ^ 0 * "[",
     LuaStringClose = "]" * m.P("=") ^ 0 * "]",
