@@ -655,8 +655,12 @@ end
 -- @name getGraph
 -- @author Matus Stefanik
 -- @param ast - [table] AST from luameg
--- @param nodes - [table] (optional) existing nodes
+-- @param nodes - [table] (optional)
 -- @return [table] list of all luadb nodes and luadb edges for luadb graph
+  -- @param astManager - [table] AST manager from luadb.managers.AST. Manager contains many AST with unique astId.
+  -- @param astId - [table] ast id from ast manager
+  -- @param graph - [table] (optional) New nodes and edges insert to this graph.
+  -- @return [table] graph (created with LuaDB.hypergraph) with nodes and edges needed for class diagram from ast
 local function getGraph(ast, nodes)
 	assert(ast ~= nil, 'AST is nil.')
 
