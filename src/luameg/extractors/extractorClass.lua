@@ -184,6 +184,23 @@ local function getAstNodesByPath(ast, path, inKey, maxDepth)
 	return dataOut
 end
 
+----------
+-- Check if ast contain node folowed by path
+-- @name isAstNodesByPath
+local function isAstNodesByPath(ast, path, inKey, maxDepth)
+	local dataOut = {}
+	local index = 1
+	local maxDepth = maxDepth or nil
+	local inKey = inKey or "key"
+
+	local result = getAstNodesByPath(ast, path, inKey, maxDepth)
+	if #result > 0 then
+		return true
+	end
+
+	return false
+end
+
 ---------------------------
 -- @name isValueInTree
 -- @author Matus Stefanik
@@ -280,7 +297,17 @@ local function getAllClasses(ast)
 				if #methodsArgsTrees > 0 then
 					methodsArgsTrees2 = getChildNode(methodsArgsTrees[1], "FnArgDef", "key")
 					for k=1, #methodsArgsTrees2 do
-						table.insert(methodsArgs, methodsArgsTrees2[k]["data"][1])
+						local childNode = methodsArgsTrees2[k]["data"][1]
+						if childNode["key"] == "SelfName" then
+							-- metoda: (@arg1, arg2) => ...     tak arg1 vznikne ako verejna clenska premenna
+							local t = childNode.text:gsub("@", "")
+							if setProps[t] == nil and #t > 0 then
+								setProps[t] = true
+								table.insert(props, childNode)
+							end
+						end
+
+						table.insert(methodsArgs, childNode)
 					end
 
 					local methodd = {}
@@ -288,40 +315,32 @@ local function getAllClasses(ast)
 					if #methodd > 0 then
 						table.insert(methods, {["name"] = methodd[1], ["astNode"] = classLinesTree[j], ["args"] = methodsArgs})
 
-						--if methodd[1]["text"] == "new" then
-						--	-- vsetky selfname na lavej strane od Assign v Statement, v konstruktore new()
-						local stmsTree = {}
-						stmsTree = getChildNode(classLinesTree[j], "Statement", "key")
-						for k=1, #stmsTree do
-							local selfNameTree ={}
-							local expListTree ={}
-							expListTree = getChildNode(stmsTree[k], "ExpList", "key")
-							if #expListTree > 0 then
-								selfNameTree = getChildNode(expListTree[1], "SelfName", "key")
-								if #selfNameTree > 0 then
-									local t = selfNameTree[1]["text"]:gsub('%W', '')
-									if #t ~= 0 then
-										if setProps[t] == nil or setProps[t] ~= true then
-											setProps[t] = true
-											table.insert(props, selfNameTree[1])
-										end
+
+						local statements = getAstNodesByPath(classLinesTree[j], {"*", "Statement"})
+						for k, v in pairs(statements) do 
+							local isAssign = isAstNodesByPath(v, {"Statement", "Assign"}, "key", 2)
+							if isAssign == true then
+								local selfName = getAstNodesByPath(v, {"Statement", "ExpList", "Exp", "*", "Callable", "SelfName"})
+								if #selfName > 0 then
+									local name = selfName[1].text:gsub('@', '')
+									if setProps[name] == nil and #name > 0 then
+										setProps[name] = true
+										table.insert(props, selfName[1])
 									end
 								end
 							end
 						end
-						--end
+
 					end
 				else
 					-- ziskanie vsetkych properties
 					local propss = {}
 					propss = getChildNode(classLinesTree[j], "KeyName", "key")
 					if #propss ~= 0 then
-						local t = propss[1]["text"]:gsub('%W', '')
-						if #t ~= 0 then
-							if setProps[t] == nil or setProps[t] ~= true then
-								setProps[t] = true
-								table.insert(props, propss[1])
-							end
+						local t = propss[1]["text"]:gsub('@', '')
+						if setProps[t] == nil and #t > 0 then
+							setProps[t] = true
+							table.insert(props, propss[1])
 						end
 					end
 				end
@@ -463,7 +482,7 @@ local function getGraph(ast, nodes)
 			-- arguments
 			for k=1, #classes[i]["methods"][j]["args"] do
 
-				local nodeArgName = classes[i]["methods"][j]["args"][k]["text"]
+				local nodeArgName = classes[i]["methods"][j]["args"][k]["text"]:gsub('@', '')
 				local nodeArgAstNodeId = classes[i]["methods"][j]["args"][k]["nodeid"]
 				local nodeArg = createNode("argument", nodeArgName, nodeArgAstNodeId, nil)
 
