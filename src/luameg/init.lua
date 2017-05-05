@@ -140,6 +140,7 @@ local function getGraphFile(path, astManager)
 	assert(ast ~= nil, "Ast for file is nil. Does file exist?")
 
 	local astManager = astManager or moduleAstManager.new()
+	local pathDir, filename, filetype = string.match(path, "(.-)([^\\/]-%.?([^%.\\/]*))$")
 
 	local astRoot, astId = astManager:findASTByPath(path)
 
@@ -148,7 +149,30 @@ local function getGraphFile(path, astManager)
 		astRoot = ast
 	end
 
+
+	-- vytvorenie uzla typu súbor
+	local fileNode = hypergraph.node.new()
+	fileNode.meta = fileNode.meta or {}
+	fileNode.meta.type = "file"
+	fileNode.data.name = filename
+	fileNode.data.path = path
+	fileNode.data.astID = astId
+	fileNode.data.astNodeID = astRoot.nodeid
+
+	-- ziskanie class graph
 	local graph = getClassGraph(astManager, astId, nil)
+
+	-- spojenie uzlu file s uzlami class
+	local classNodes = graph:findNodesByType("class")
+	graph:addNode(fileNode)
+	for k, vNode in pairs(classNodes) do
+		local edge = hypergraph.edge.new()
+		edge:setAsOriented()
+		edge.label = "contains"
+		edge:setSource(fileNode)
+		edge:setTarget(vNode)
+		graph:addEdge(edge)
+	end
 
 	-- doplnenie graph o sekvencny graf
 	-- graph = addSequenceGraphIntoClassGraph(ast, graph)
