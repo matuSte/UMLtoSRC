@@ -33,8 +33,58 @@ local function isSystemCall (methodName)
 	return (index ~= -1)
 end
 
+--
+local function isParenthesArgs (argumentsNode)
+	if (argumentsNode ~= nil) then
+		return false, nil
+	end
+
+	if ( argumentsNode.key == "FnArgsExpList") then
+		return true, argumentsNode
+	else
+		return isParenthesArgs(argumentsNode.data[1])
+	end
+end
+
+local function getArguments (argumentsNode, arguments)
+
+	if ((argumentsNode.key ~= "InvokeArgs") and (argumentsNode.key ~= "ChainItems")) then
+		print("NO ARGUMENTS NODE.")
+		return arguments
+	end
+
+	print("GETTING ARGUMENT LIST")
+	local isNestedWithParentheses, nestedWithParenthesesNode = isParenthesArgs(argumentsNode)
+	if (isNestedWithParentheses) then
+		for key, value in pairs(nestedWithParenthesesNode.data) do
+			local argName = value.text
+			print(argName)
+			argName = argName:gsub(" ", "")
+			argName = argName:gsub("@", "")
+			argName = argName:gsub("%(", "")
+			argName = argName:gsub("%)", "")
+
+			table.insert(arguments, argName)
+		end
+	else
+		-- use ExpList node instead of parent InvokeArgs
+		for key, value in pairs(argumentsNode.data[1].data) do
+			local argName = value.text
+			print(argName)
+			argName = argName:gsub(" ", "")
+			argName = argName:gsub("@", "")
+			argName = argName:gsub("%(", "")
+			argName = argName:gsub("%)", "")
+
+			table.insert(arguments, argName)
+		end
+	end
+
+	return arguments
+end
+
 -- 
-local function isFunctionCall (node)
+local function isFunctionCall (node, arguments)
 
 	if (node.key ~= 'Exp') then
 		return false
@@ -45,14 +95,20 @@ local function isFunctionCall (node)
 
 		-- 	return (hasArguments or withoutArguments) and (node.data[1].data[1].key == 'ChainValue')
 		-- else
-			local expKey = node.key
 			node = node.data[1].data[1]
 
 			local hasArguments = isMethodWithArguments(node)
 			local withoutArguments = isMethodWithoutArguments(node)
 			local objectMethodWithArguments = isObjectMethodWithArguments(node)
 
-			return hasArguments or withoutArguments or objectMethodWithArguments 
+			if (hasArguments or objectMethodWithArguments) then
+				arguments = getArguments(node.data[2], arguments)
+			elseif (withoutArguments) then
+				arguments = getArguments(node.data[1].data[2], arguments)
+			end
+
+			local returnedBoolValue = hasArguments or withoutArguments or objectMethodWithArguments
+			return returnedBoolValue, arguments
 		-- end
 	end
 end
@@ -60,17 +116,20 @@ end
 -- 
 local function findMethodCall(statement)
   local methodCall = nil
+  local methodArguments = {}
 
   for i, node in pairs(statement.data) do
-    if (isFunctionCall(node)) then
+  	local isFunction
+  	isFunction, methodArguments = isFunctionCall(node, methodArguments)
+    if (isFunction) then
       methodCall = node
       break
     else
-      methodCall = findMethodCall(node)
+      methodCall, methodArguments = findMethodCall(node)
     end
   end
 
-  return methodCall
+  return methodCall, methodArguments
 end
 
 -- 
@@ -145,6 +204,19 @@ local function constructMethodNode (node)
 	return varName, methodName
 end
 
+-- 
+local function checkArgumentsAgainstScope (scope, arguments)
+
+	local matchedArguments = {}
+	for i=1, #arguments, 1 do
+		local actualArg = arguments[i]
+		print("CHECK ARGUMENT AGAINST SCOPE: ", "/" .. actualArg .. "/", scope[actualArg])
+		table.insert(matchedArguments, scope[actualArg])
+	end
+
+	return matchedArguments
+end
+
 
 return {
 	isAssignStatement = isAssignStatement,
@@ -152,5 +224,6 @@ return {
 	findMethodCall = findMethodCall,
 	constructMethodNode = constructMethodNode,
 	getName = getName,
-	isSystemCall = isSystemCall
+	isSystemCall = isSystemCall,
+	checkArgumentsAgainstScope = checkArgumentsAgainstScope
 }

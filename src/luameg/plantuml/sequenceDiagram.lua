@@ -1,6 +1,13 @@
 
 function generateSequenceDiagramImage()
-  os.execute("java -jar plantuml.jar -verbose plantUml.txt")
+  os.execute("java -jar plantuml.jar  -quiet -tsvg _uml.txt")
+  local svgFile = assert(io.open("_uml.svg", "r"))
+  local svgContent = svgFile:read("*all")
+  svgFile:close()
+
+  os.remove("_uml.txt")
+  os.remove("_uml.svg")
+  return svgContent
 end
 
 -----------------------------------------------------
@@ -17,12 +24,12 @@ local function filterSequenceDiagram( graph, methodNodeID, outputStr, classCalle
   end
 
   local classCalledWithin = classCalledFrom
-  if (methodNode.meta.type == 'Method') then
-    classCalledWithin = graph:findEdgesByTarget( methodNodeID, 'Contains' )[1].from[1].data.name
+  if (methodNode.meta.type == 'method') then
+    classCalledWithin = graph:findEdgesByTarget( methodNodeID, 'contains' )[1].from[1].data.name
     outputString = outputString .. "activate " .. classCalledWithin .. "\n"
   end
 
-  local methodExecutions = graph:findEdgesBySource( methodNodeID, 'Executes' )
+  local methodExecutions = graph:findEdgesBySource( methodNodeID, 'executes' )
 
   for index, edge in pairs(methodExecutions) do
     local actualNode = edge.to[1]
@@ -30,21 +37,21 @@ local function filterSequenceDiagram( graph, methodNodeID, outputStr, classCalle
     print("CMON... LOG!", actualNode.data.name)
     print(outputString)
 
-    if (actualNode.meta.type == 'Method') then
+    if (actualNode.meta.type == 'method') then
       
-      local classCalledTo = graph:findEdgesByTarget( actualNode.id, 'Contains' )[1].from[1].data.name
+      local classCalledTo = graph:findEdgesByTarget( actualNode.id, 'contains' )[1].from[1].data.name
 
       outputString = outputString .. classCalledWithin .. " -> " .. classCalledTo .. " : " .. actualNode.data.name .. "\n"
       -- outputString = outputString .. "activate " .. classCalledTo .. "\n"
 
       -- recursive call
-      outputString = filterSequenceDiagram( graph, actualNode.id, outputString )
+      outputString = filterSequenceDiagram( graph, actualNode.id, outputString, classCalledWithin )
 
       -- outputString = outputString .. "deactivate " .. classCalledTo .. "\n"
 
-    elseif (actualNode.meta.type == 'Condition') then
+    elseif (actualNode.meta.type == 'condition') then
 
-      local conditionBranches = graph:findEdgesBySource( actualNode.id, 'HasBranch' )
+      local conditionBranches = graph:findEdgesBySource( actualNode.id, 'hasBranch' )
 
       for key, branch in pairs(conditionBranches) do
 
@@ -61,17 +68,23 @@ local function filterSequenceDiagram( graph, methodNodeID, outputStr, classCalle
       end
 
       outputString = outputString .. "end\n"
-    elseif (actualNode.meta.type == 'Loop') then
+    elseif (actualNode.meta.type == 'loop') then
 
-      local loopHeaderNode = graph:findEdgesBySource( actualNode.id, 'HasHeader' )[1].to[1]
+      local loopHeaderNode = graph:findEdgesBySource( actualNode.id, 'hasHeader' )[1].to[1]
       outputString = outputString .. "loop " .. loopHeaderNode.data.name .. "\n"
 
       outputString = filterSequenceDiagram( graph, actualNode.id, outputString, classCalledWithin )
       outputString = outputString .. "end\n"
+    elseif (actualNode.meta.type == 'return') then
+
+      if (classCalledFrom) then
+        outputString = outputString .. classCalledWithin .. " -> " .. classCalledFrom .. " : " .. actualNode.data.name .. "\n"
+      end
+
     end
   end
 
-  if (methodNode.meta.type == 'Method') then
+  if (methodNode.meta.type == 'method') then
     outputString = outputString .. "deactivate " .. classCalledWithin .. "\n"
   end
 
@@ -91,11 +104,11 @@ local function getImg(graph, methodID)
 
   outputString = outputString .. "@enduml"
 
-  local file = io.open("plantUml.txt", "w")
+  local file = io.open("_uml.txt", "w")
   file:write(outputString)
   file:close()
 
-  generateSequenceDiagramImage()
+  return generateSequenceDiagramImage()
 end
 
 -----------------------------------------------------
@@ -104,5 +117,5 @@ end
 
 
 return {
-  getImg = getImg
+  getSVGDiagram = getImg
 }

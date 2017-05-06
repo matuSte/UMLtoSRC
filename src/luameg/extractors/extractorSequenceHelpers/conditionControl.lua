@@ -24,31 +24,31 @@ local function insertCentralConditionNodeWithEdge(hypergraph, conditionNode, gra
 	-- create new luadb node, setup with proper values and insert into hypergraph
 	local newCondNode = luadb.node.new()
 	newCondNode.meta = newCondNode.meta or {}
-	newCondNode.meta.type = "Condition"
-	newCondNode.data.name = "Condition"
+	newCondNode.meta.type = "condition"
+	newCondNode.data.name = "condition"
 	newCondNode.data.astNodeId = conditionNode.nodeid
 
 	hypergraph:addNode(newCondNode)
-    -- condition node creation end
+  -- condition node creation end
 
-    -- create new edge to connect method with created condition node
-    local edge = luadb.edge.new()
-    edge.label = "Executes"
-    edge:setSource(graphSourceNode)
-    edge:setTarget(newCondNode)
-    edge:setAsOriented()
+  -- create new edge to connect method with created condition node
+  local edge = luadb.edge.new()
+  edge.label = "executes"
+  edge:setSource(graphSourceNode)
+  edge:setTarget(newCondNode)
+  edge:setAsOriented()
 
-    hypergraph:addEdge(edge)
-    -- edge between method and conditon node creation end
+  hypergraph:addEdge(edge)
+  -- edge between method and conditon node creation end
 
-    return hypergraph, newCondNode
+  return hypergraph, newCondNode
 end
 
 local function setupConditionBranch(nodeName, nodeAstId, graphSource, hypergraph)
   -- create first condition branch node
   local newCondBranch = luadb.node.new()
   newCondBranch.meta = newCondBranch.meta or {}
-  newCondBranch.meta.type = "ConditionBranch"
+  newCondBranch.meta.type = "conditionBranch"
   newCondBranch.data.name = nodeName
   newCondBranch.data.astNodeId = nodeAstId
 
@@ -56,7 +56,7 @@ local function setupConditionBranch(nodeName, nodeAstId, graphSource, hypergraph
 
   -- create also edge to connect these two nodes
   local branchEdge = luadb.edge.new()
-  branchEdge.label = "HasBranch"
+  branchEdge.label = "hasBranch"
   branchEdge:setSource(graphSource)
   branchEdge:setTarget(newCondBranch)
   branchEdge:setAsOriented()

@@ -36,8 +36,8 @@ local function insertCentralLoopNodeWithEdge(hypergraph, loopNode, graphSourceNo
 	-- create new luadb node, setup with proper values and insert into hypergraph
 	local newLoopNode = luadb.node.new()
 	newLoopNode.meta = newLoopNode.meta or {}
-	newLoopNode.meta.type = "Loop"
-	newLoopNode.data.name = "Loop"
+	newLoopNode.meta.type = "loop"
+	newLoopNode.data.name = "loop"
 	newLoopNode.data.astNodeId = loopNode.nodeid
 
 	hypergraph:addNode(newLoopNode)
@@ -45,7 +45,7 @@ local function insertCentralLoopNodeWithEdge(hypergraph, loopNode, graphSourceNo
 
     -- create new edge to connect method with created loop node
     local edge = luadb.edge.new()
-    edge.label = "Executes"
+    edge.label = "executes"
     edge:setSource(graphSourceNode)
     edge:setTarget(newLoopNode)
     edge:setAsOriented()
@@ -60,7 +60,7 @@ local function insertHeaderNodeWithEdge(hypergraph, loopConditionText, newLoopNo
 	-- let's create loop header luadb node
 	local loopHeader = luadb.node.new()
 	loopHeader.meta = loopHeader.meta or {}
-	loopHeader.meta.type = "LoopHeader"
+	loopHeader.meta.type = "loopHeader"
 	loopHeader.data.name = loopConditionText
 
 	hypergraph:addNode(loopHeader)
@@ -68,7 +68,7 @@ local function insertHeaderNodeWithEdge(hypergraph, loopConditionText, newLoopNo
 
     -- create new edge to connect method with created loop node
     local headerEdge = luadb.edge.new()
-    headerEdge.label = "HasHeader"
+    headerEdge.label = "hasHeader"
     headerEdge:setSource(newLoopNode)
     headerEdge:setTarget(loopHeader)
     headerEdge:setAsOriented()
