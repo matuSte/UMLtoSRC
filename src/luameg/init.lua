@@ -144,7 +144,7 @@ local function getGraphFile(path, astManager)
 
 	local astRoot, astId = astManager:findASTByPath(path)
 
-	if astRoot == nil then
+	if astRoot == nil or astId == nil then
 		astId = astManager:addAST(ast, path)
 		astRoot = ast
 	end
