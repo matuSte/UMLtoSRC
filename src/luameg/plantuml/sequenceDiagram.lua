@@ -34,9 +34,6 @@ local function filterSequenceDiagram( graph, methodNodeID, outputStr, classCalle
   for index, edge in pairs(methodExecutions) do
     local actualNode = edge.to[1]
 
-    print("CMON... LOG!", actualNode.data.name)
-    print(outputString)
-
     if (actualNode.meta.type == 'method') then
       
       local classCalledTo = graph:findEdgesByTarget( actualNode.id, 'contains' )[1].from[1].data.name

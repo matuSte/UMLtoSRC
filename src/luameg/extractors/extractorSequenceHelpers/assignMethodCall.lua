@@ -19,14 +19,10 @@ local function isObjectMethodWithArguments (node)
 	return (#node.data == 2) and (#node.data[1].data == 2) and (node.data[1].key == "Chain") and (node.data[2].key == "InvokeArgs") and (node.data[1].data[1].key == "Callable") and (node.data[1].data[2].key == "ChainItems")
 end
 
---
--- local function binaryOperatorCall (node)
--- 	return (#node.data == 1) and (node.data[1].key == 'Value') and (#noda.data[1].data == 1) and (node.data[1].data[1].key == 'ChainValue') and (#node.data[1].data[1].data == 1) and (#node.data[1].data[1].data[1].data == 2)
--- end
-
 local function isSystemCall (methodName)
 	local systemMethods = {
-		print = 0
+		print = 0,
+		require = 0
 	}
 	local index = systemMethods[methodName] or -1
 
@@ -49,11 +45,9 @@ end
 local function getArguments (argumentsNode, arguments)
 
 	if ((argumentsNode.key ~= "InvokeArgs") and (argumentsNode.key ~= "ChainItems")) then
-		print("NO ARGUMENTS NODE.")
 		return arguments
 	end
 
-	print("GETTING ARGUMENT LIST")
 	local isNestedWithParentheses, nestedWithParenthesesNode = isParenthesArgs(argumentsNode)
 	if (isNestedWithParentheses) then
 		for key, value in pairs(nestedWithParenthesesNode.data) do
@@ -89,27 +83,20 @@ local function isFunctionCall (node, arguments)
 	if (node.key ~= 'Exp') then
 		return false
 	else
-		-- if (binaryOperatorCall(node) == true) then
-		-- 	local hasArguments = isMethodWithArguments(node.data[3].data[1])
-		-- 	local withoutArguments = isMethodWithoutArguments(node.data[3].data[1])
+		node = node.data[1].data[1]
 
-		-- 	return (hasArguments or withoutArguments) and (node.data[1].data[1].key == 'ChainValue')
-		-- else
-			node = node.data[1].data[1]
+		local hasArguments = isMethodWithArguments(node)
+		local withoutArguments = isMethodWithoutArguments(node)
+		local objectMethodWithArguments = isObjectMethodWithArguments(node)
 
-			local hasArguments = isMethodWithArguments(node)
-			local withoutArguments = isMethodWithoutArguments(node)
-			local objectMethodWithArguments = isObjectMethodWithArguments(node)
+		if (hasArguments or objectMethodWithArguments) then
+			arguments = getArguments(node.data[2], arguments)
+		elseif (withoutArguments) then
+			arguments = getArguments(node.data[1].data[2], arguments)
+		end
 
-			if (hasArguments or objectMethodWithArguments) then
-				arguments = getArguments(node.data[2], arguments)
-			elseif (withoutArguments) then
-				arguments = getArguments(node.data[1].data[2], arguments)
-			end
-
-			local returnedBoolValue = hasArguments or withoutArguments or objectMethodWithArguments
-			return returnedBoolValue, arguments
-		-- end
+		local returnedBoolValue = hasArguments or withoutArguments or objectMethodWithArguments
+		return returnedBoolValue, arguments
 	end
 end
 
@@ -164,7 +151,7 @@ local function constructMethodNode (node)
 		node = node.data[1].data[1]
 		-- newMethodNode.name = getName(node.data[1].data[1])
 		local helpName = node.data[1].data[2].data[1].text
-		print("-------------- " .. helpName .. " ---------------")
+
 		if (helpName:sub(1,1) == '.') then
 			varName = getName(node.data[1].data[1])
 			methodName = helpName:gsub("^.", "")
@@ -178,27 +165,10 @@ local function constructMethodNode (node)
 
 	-- object method call with arguments
 	elseif (isObjectMethodWithArguments(node.data[1].data[1])) then
-
 		node = node.data[1].data[1]
 		varName = getName(node.data[1].data[1])
 		methodName = node.data[1].data[2].text:gsub("^.", "")
 		methodName = methodName:gsub("^\\", "")
-
-	-- when method is called on object with binary operator '/' we need to consider the same
-	-- cases as in pure method calls
-	-- elseif (binaryOperatorCall(node)) then
-
-	-- 	varName = getName(node.data[1].data[1])
-	-- 	if (isMethodWithArguments(node.data[3].data[1])) then
-
-	-- 		methodName = getName(node.data[3].data[1].data[1])
-
-	-- 	elseif (isMethodWithoutArguments(node.data[3].data[1])) then
-
-	-- 		methodName = getName(node.data[3].data[1].data[1].data[1])
-
-	-- 	end
-
 	end
 
 	return varName, methodName
@@ -210,8 +180,8 @@ local function checkArgumentsAgainstScope (scope, arguments)
 	local matchedArguments = {}
 	for i=1, #arguments, 1 do
 		local actualArg = arguments[i]
-		print("CHECK ARGUMENT AGAINST SCOPE: ", "/" .. actualArg .. "/", scope[actualArg])
-		table.insert(matchedArguments, scope[actualArg])
+
+		matchedArguments[i] = scope[actualArg]
 	end
 
 	return matchedArguments

@@ -184,7 +184,7 @@ local function getGraphProject(dir, astManager)
 
 				-- TODO: doplnit class graf o sekvencny
 
-				graphFileClass = addSequenceGraphIntoClassGraph(astManager, graphFileClass)
+				-- graphFileClass = addSequenceGraphIntoClassGraph(astManager, graphFileClass)
 
 				-- priradi z grafu jednotlive uzly a hrany do kompletneho vysledneho grafu
 				for j=1, #graphFileClass.nodes do
@@ -210,6 +210,8 @@ local function getGraphProject(dir, astManager)
 			end
 		end
 	end
+
+	graphProject = addSequenceGraphIntoClassGraph(astManager, graphProject)
 
 	return graphProject, astManager
 end

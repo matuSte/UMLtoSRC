@@ -59,21 +59,14 @@ local function findAstNode(ast, astNodeId)
 end
 
 local function setParameterTypes (methodNode, arguments, hypergraph, originalHypergraph)
-  
-  print("ITERATE ARGUMENTS")
-  for key, val in pairs(arguments) do
-    print(key, val)
-  end
-
   local argumentEdges = hypergraph:findEdgesBySource(methodNode.id, "has")
   local argumentCount = 0
+
   for key, edge in pairs(argumentEdges) do
     local argumentNode = edge.to[1]
     if (argumentNode.meta.type == "argument") then
-      print("I FOUND SUITABLE ARGUMENT - BEGINNING IDENTIFICATION")
       argumentCount = argumentCount + 1
       local typeEdges = hypergraph:findEdgesBySource(argumentNode.id, "hasType")
-      print("SETTING, TYPE EDGES COUNT: ", #typeEdges)
       if ((#typeEdges == 0) and (arguments[argumentCount] ~= nil)) then
         local typeNode = luadb.node.new()
         typeNode.meta = typeNode.meta or {}
@@ -93,7 +86,6 @@ local function setParameterTypes (methodNode, arguments, hypergraph, originalHyp
         hypergraph:addEdge(typeEdge)
         originalHypergraph:addEdge(typeEdge)
 
-        print("NEW TYPE HAS BEEN ADDED: ", arguments[argumentCount])
         incrementChangeCounter()
       end
     end
@@ -133,9 +125,6 @@ local function copyScope(scope)
 
   for key, item in pairs(scope) do
     newScope[key] = item
-
-    print("SCOPE COPY\n" .. key .. " - " .. item)
-    print(newScope[key])
   end
 
   return newScope
@@ -153,7 +142,6 @@ local function setupInitialScope(methodNode, hypergraph)
         local typeNode = typeEdges[1].to[1]
 
         scope[argumentNode.data.name] = typeNode.data.name
-        print("SETUP INITIAL SCOPE LOG:", argumentNode.data.name, typeNode.data.name)
       end
     end
   end
@@ -176,11 +164,6 @@ end
 
 -- ........................................................
 local function subsequentMethodHelper(methodNode, hypergraph, originalHypergraph, scope, graphClassNode, graphSourceNode)
-
-  -- STEP 1: iterate through method node data, which contains all subsequent statements
-
-  -- STEP 2: in every iteration distinguish two cases: assign statement and just call 
-  --         statement
   local methodNodeBody = findMethodBody(methodNode)
 
   if (methodNodeBody == nil) then
@@ -198,18 +181,16 @@ local function subsequentMethodHelper(methodNode, hypergraph, originalHypergraph
         if (assignModule.isAssignStatement(statement)) then
           methodCallNode, methodCallArguments = assignModule.findMethodCall(statement.data[2])
           variableAssignedTo = assignModule.getName(statement.data[1])
-          print("\tAssign Statement, variable name is: " .. variableAssignedTo)
 
           if (methodCallNode ~= nil) then
             local variableCalledFrom, methodName = assignModule.constructMethodNode(methodCallNode)
             local callNodes = hypergraph:findNodesByName(methodName)
 
-            print("METHOD NAME LOG !!! " .. methodName)
-
+            if (assignModule.isSystemCall(methodName)) or (#callNodes == 0) then
+              print ("\tSystem call.")
             -- TODO: handle method names that are the same as class names
-            if (callNodes[1].meta.type == 'class') and (variableCalledFrom == '') then
+            elseif (callNodes[1].meta.type == 'class') and (variableCalledFrom == '') then
               scope[variableAssignedTo] = methodName
-              print( "\tConstructor: " .. methodName)
             elseif (callNodes[1].meta.type == 'method') and (variableCalledFrom == '') then
               local classMethods = hypergraph:findEdgesBySource(graphClassNode.id, 'contains')
               local matchedArgs = assignModule.checkArgumentsAgainstScope(scope, methodCallArguments)
@@ -223,17 +204,14 @@ local function subsequentMethodHelper(methodNode, hypergraph, originalHypergraph
                 matchedArgs
               )
 
-              print( "\tSelf method call: " .. methodName)
             elseif (callNodes[1].meta.type == 'method') and (variableCalledFrom ~= '') then
               local variableType = scope[variableCalledFrom]
               if (variableType) then
                 -- TODO: handle case when class name is not found
                 local classNode = hypergraph:findNodesByName(variableType)[1]
-                local classMethods = hypergraph:findEdgesBySource(classNode.id, 'contains')
-
-                print("ASSIGN FROM OBJECT: " .. classNode.id .. ", " .. classNode.data.name .. ", " .. #classMethods)
-                
+                local classMethods = hypergraph:findEdgesBySource(classNode.id, 'contains')                
                 local matchedArgs = assignModule.checkArgumentsAgainstScope(scope, methodCallArguments)
+                
                 hypergraph, originalHypergraph = insertEdgeIntoHypergraph(
                   graphSourceNode, 
                   classMethods, 
@@ -243,7 +221,6 @@ local function subsequentMethodHelper(methodNode, hypergraph, originalHypergraph
                   matchedArgs
                 )
               end
-              -- print( "\t" .. "Var: " .. variableCalledFrom .. " of type: " .. variableType .. ", Method: " .. methodName)
             end
             
           end
@@ -253,8 +230,6 @@ local function subsequentMethodHelper(methodNode, hypergraph, originalHypergraph
 
           if (methodCallNode ~= nil) then
             local variableCalledFrom, methodName = assignModule.constructMethodNode(methodCallNode)
-            print( "\tVoid Call on method: " .. methodName)
-
             local callNodes = hypergraph:findNodesByName(methodName)
 
             if (assignModule.isSystemCall(methodName)) or (#callNodes == 0) then
@@ -272,7 +247,6 @@ local function subsequentMethodHelper(methodNode, hypergraph, originalHypergraph
                 matchedArgs
               )
 
-              print( "\tSelf method call: " .. methodName)
             elseif (callNodes[1].meta.type == 'method') and (variableCalledFrom ~= '') then
               local variableType = scope[variableCalledFrom]
               if (variableType) then
@@ -290,7 +264,6 @@ local function subsequentMethodHelper(methodNode, hypergraph, originalHypergraph
                   matchedArgs
                 )
               end
-              print( "\t" .. "Var: " .. variableCalledFrom .. ", Method: " .. methodName)
             end
             
           else
@@ -392,13 +365,9 @@ local function subsequentMethodHelper(methodNode, hypergraph, originalHypergraph
                   local loopCondition = loopNode.data[2].text
                   loopConditionText = loopKeyWord .. loopCondition
                   loopBodyNode = loopNode.data[3]
-
-                  print("\tLoop construction WHILE: " .. loopConditionText)
                 elseif (loopNode.data[1].key == "FOR") then
                   loopConditionText = loopModule.constructForLoopText(loopNode)
                   loopBodyNode = loopNode.data[#loopNode.data]
-
-                  print("\tLoop construction FOR: " .. loopConditionText)
                 end
                 
                 hypergraph = loopModule.insertHeaderNodeWithEdge(
@@ -460,10 +429,8 @@ local function getSubsequentMethods(astManager, hypergraph)
     assert(astManager ~= nil, "astManager cannot be nil.")
     
     local typeNodes = hypergraph:findNodesByType("customType")
-    print("TYPE NODES COUNT BEFORE: ", #typeNodes)
 
     for key, class in pairs(classes) do
-      print("CLASS: ", class.data.name, class.meta.type, class.data.astNodeId)
 
       local ast = astManager:findASTByID(class.data.astId)
       assert(ast ~= nil, 'AST not found. Does there exist ast with astId:"' .. class.data.astId .. '" in astManager?')
@@ -471,7 +438,6 @@ local function getSubsequentMethods(astManager, hypergraph)
       local classMethods = clonedHypergraph:findEdgesBySource(class.id, 'contains')
       for key, classMethod in pairs(classMethods) do
 
-        -- print(key, classMethod.label, classMethod.to, classMethod.from)
         local methodNode = classMethod.to[1]
 
         for key2, val2 in pairs(methodNode) do
@@ -479,7 +445,6 @@ local function getSubsequentMethods(astManager, hypergraph)
         end
 
         if (methodNode.meta.type == 'method') then
-          print("METHOD: ", methodNode.data.name, methodNode.meta.type, methodNode.data.astNodeId)
 
           local scope = setupInitialScope(methodNode, clonedHypergraph)
           local astMethodNode = findAstNode(ast, methodNode.data.astNodeId)
@@ -494,18 +459,28 @@ local function getSubsequentMethods(astManager, hypergraph)
           )
 
         end
-        -- print('\t', methodNode.id, methodNode.data.name, methodNode.meta.type, methodNode.data.astNodeId)
       end
 
     end
 
-    typeNodes = hypergraph:findNodesByType("customType")
-    print("TYPE NODES COUNT AFTER: ", #typeNodes)
-
-    print("PRINTING CHANGE COUNTER: ", changeCounter)
     finalGraph = clonedHypergraph
 
   end
+
+  typeNodes = finalGraph:findNodesByType("class")
+  print("TYPE CLASS COUNT AFTER: ", #typeNodes)
+
+  typeNodes = finalGraph:findNodesByType("method")
+  print("TYPE METHOD COUNT AFTER: ", #typeNodes)
+
+  typeNodes = finalGraph:findNodesByType("condition")
+  print("TYPE CONDITION COUNT AFTER: ", #typeNodes)
+
+  typeNodes = finalGraph:findNodesByType("loop")
+  print("TYPE LOOP COUNT AFTER: ", #typeNodes)
+
+  typeNodes = finalGraph:findEdgesByLabel("executes")
+  print("TYPE EXECUTES COUNT AFTER: ", #typeNodes)
 
   return finalGraph
 end
