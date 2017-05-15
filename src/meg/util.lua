@@ -212,6 +212,7 @@ end
 
 local check_lua_string
 check_lua_string = function(str, pos, right, left)
+  -- FIX: mozno problem: right je retazec "]]" a left je tabulka s astNode
   return #left == #right
 end
 

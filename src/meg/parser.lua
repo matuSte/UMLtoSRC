@@ -204,7 +204,7 @@ local rules = {
     String = Space * m.V'DoubleString' + Space * m.V'SingleString' + m.V'LuaString',
     SingleString = util.simple_string("'"),
     DoubleString = util.simple_string('"', true),
-    LuaString = m.V'LuaStringOpen' * Break ^ -1 * ((1 - m.Cmt((m.V'LuaStringClose'), util.check_lua_string)) ^ 0) * m.V'LuaStringClose',
+    LuaString = m.C(m.V'LuaStringOpen') * Break ^ -1 * ((1 - m.Cmt(m.C(m.V'LuaStringClose'), util.check_lua_string)) ^ 0) * m.V'LuaStringClose',
   --LuaString = m.V'LuaStringOpen' * Break ^ -1 * m.C((1 - m.Cmt(m.C(m.V'LuaStringClose'), util.check_lua_string)) ^ 0) * m.V'LuaStringClose',
     LuaStringOpen = util.sym("[") * m.P("=") ^ 0 * "[",
     LuaStringClose = "]" * m.P("=") ^ 0 * "]",
@@ -312,16 +312,20 @@ local function check(input)
   return false            -- ak result obsahuje nieco ine (tabulka, retazec)
 end
 
--- @return Vrati okrem true false aj dalsie informacie
+----------
+-- @name check_special
+-- @author Matus Stefanik
+-- @param input - [string] moonscript source code to parse
+-- @return [boolean] [string] [string] State of parsable current input, parsed source code and unparsed source code.
 local function check_special(input)
   local builder = m.P(rules)
   local result = builder:match(input)
   
   if (type(result) == "number") then
     if (result == #input + 1) then 
-      return true, result
+      return true, input:sub(1, result-1)
     end
-    return false, input:sub(1, result), input:sub(result)
+    return false, input:sub(1, result-1), input:sub(result)
   end
   return false, nil, result
 end

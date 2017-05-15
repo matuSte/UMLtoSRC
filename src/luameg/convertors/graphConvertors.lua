@@ -36,7 +36,7 @@ local function convertGraphToImportGraph(graph)
 	end
 
 	-- nodes
-	for k, vNode in ipairs(graph.nodes) do
+	for k, vNode in pairs(graph.nodes) do
 		local newNode = {type="node", id=inc(), label=vNode.data.name, params={origid=vNode.id, name=vNode.data.name}}
 
 		-- ak je to root node
@@ -57,9 +57,12 @@ local function convertGraphToImportGraph(graph)
 			newNode.params.path = vNode.data.path
 		end
 
-
-		-- sem doplnit dalsie parametre pre dalsie uzly podla potreby
-
+		-- automaticke skopirovanie dat z atributu data do newNode.params. Vynechaju sa uz skopirovane atributy.
+		for kKey, vValue in pairs(vNode.data) do
+			if kKey ~= "name" and kKey ~= "type" and kKey ~= "path" then
+			--	newNode.params[kKey] = vValue		-- ak bude treba preniest vsetky data, odkomentovat. Zatial netreba, k datam sa pristupuje cez id.
+			end
+		end
 
 		-- ulozenie uzla do zoznamu
 		nodes[vNode] = newNode		
@@ -67,7 +70,7 @@ local function convertGraphToImportGraph(graph)
 
 	assert(graph.edges ~= nil, "Input graph does not contain key 'edges'. Is it luadb graph?")
 	-- edges
-	for k, vEdge in ipairs(graph.edges) do
+	for k, vEdge in pairs(graph.edges) do
 		local edge = {type="edge", id=inc(), label=vEdge.label, params={origid=vEdge.id, type=vEdge.label}}
 
 		-- incidencie k hrane
@@ -91,7 +94,7 @@ end
 -- TODO: lepsie otestovat, mozu byt vacsie nedostatky, chybaju niektore polozky!
 --       'ast, fcgraph = hyperluametrics.getMetricsForFile(filename)'
 --       skusane na grafe z ast.hypergraph
---
+-- @deprecated
 -- Convert hypergraph from module 'hypergraph' to special import graph needed for Lua::LuaGraph.loadGraph()
 -- @name convertHypergraphToImportGraph
 -- @author Matus Stefanik
