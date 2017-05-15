@@ -1,5 +1,5 @@
 
-function generateSequenceDiagramImage()
+local function generateSequenceDiagramImage()
   os.execute("java -jar plantuml.jar  -quiet -tsvg _uml.txt")
   local svgFile = assert(io.open("_uml.svg", "r"))
   local svgContent = svgFile:read("*all")

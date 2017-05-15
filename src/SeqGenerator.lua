@@ -1,4 +1,4 @@
-function deactivationHelper(file, alreadyUsedClasses, activeMethodCalls, activeClass, actualMethodCall)
+local function deactivationHelper(file, alreadyUsedClasses, activeMethodCalls, activeClass, actualMethodCall)
 
   while not (activeClass == actualMethodCall.classCalledWithin) do
   
@@ -15,7 +15,7 @@ function deactivationHelper(file, alreadyUsedClasses, activeMethodCalls, activeC
 end
 
 
-function generateSequenceDiagramTxt(methodCalls, startingClass, startingMethod)
+local function generateSequenceDiagramTxt(methodCalls, startingClass, startingMethod)
 
   local file = io.open("plantUml.txt", "w")
   local alreadyUsedClasses = {}
@@ -91,7 +91,7 @@ function generateSequenceDiagramTxt(methodCalls, startingClass, startingMethod)
   file:close()
 end
 
-function generateSequenceDiagramImage()
+local function generateSequenceDiagramImage()
   os.execute("java -jar plantuml.jar -verbose plantUml.txt")
 end
 
