@@ -287,6 +287,7 @@ local function getAllClasses(ast)
 			-- nazov hodnoty v class line
 			local astKeyName = getAstNodesByPath(astClassLine, {"ClassLine", "KeyValueList", "KeyValue", "KeyName"})
 			local astStatementName = getAstNodesByPath(astClassLine, {"ClassLine", "Statement", "ExpList", "*", "Callable", "Name"})
+			local astStatementSelfName = getAstNodesByPath(astClassLine, {"ClassLine", "Statement", "ExpList", "*", "Callable", "SelfName"})
 			local isAssignInStatement = isAstNodesByPath(astClassLine, {"ClassLine", "Statement", "Assign"}, "key", 4)
 
 			-- metody obsahuju FunLit (uzol obsahujuci argumenty), clenske premenne ho neobsahuju
@@ -306,6 +307,14 @@ local function getAllClasses(ast)
 				elseif isAssignInStatement == true and astStatementName[1] ~= nil and #astStatementName > 0 then
 					outMethods["visibility"] = "private"
 					outMethods["name"] = astStatementName[1]
+				elseif isAssignInStatement == true and astStatementSelfName[1] ~= nil and #astStatementSelfName > 0 then
+					outMethods["visibility"] = "public"
+					outMethods["name"] = astStatementSelfName[1]
+				else
+					-- error
+					print("Unknow method name in extractorClass !")
+					outMethods["name"] = "unknow"
+					outMethods["visibility"] = "public"
 				end
 
 				local astFnArgDefs = getAstNodesByPath(astFunLit_arguments[1], {"FunLit", "*", "FnArgDef"}, "key", 4)
@@ -492,7 +501,7 @@ local function getGraph(ast, nodes)
 		-- methods
 		for j=1, #classes[i]["methods"] do
 
-			local nodeMethodName = classes[i]["methods"][j]["name"]["text"]
+			local nodeMethodName = classes[i]["methods"][j]["name"]["text"]:gsub("@", "")
 			local nodeMethodAstNodeId = classes[i]["methods"][j]["astNode"]["nodeid"]
 			local nodeMethodVisibility = classes[i]["methods"][j]["visibility"]
 			local nodeMethod = createNode("method", nodeMethodName, nodeMethodAstNodeId, nil, nodeMethodVisibility)
